@@ -185,6 +185,8 @@ pub enum DataKey {
     TotalPledged,
     /// List of all pledger addresses.
     Pledgers,
+    /// List of stretch goal milestones above the primary goal.
+    StretchGoals,
 }
 
 // ── Contract Error ──────────────────────────────────────────────────────────
@@ -1152,6 +1154,14 @@ impl CrowdfundContract {
         next_unmet_milestone(total_raised, &stretch_goals)
     }
     /// Returns the total amount of tokens raised so far.
+        for milestone in stretch_goals.iter() {
+            if total_raised < milestone {
+                return milestone;
+            }
+        }
+
+        0
+    }
     pub fn total_raised(env: Env) -> i128 {
         env.storage()
             .instance()
