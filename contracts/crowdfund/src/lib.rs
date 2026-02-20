@@ -1138,4 +1138,12 @@ impl CrowdfundContract {
     pub fn nft_contract(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::NFTContract)
     }
+    /// Returns the list of all contributor addresses.
+    pub fn contributors(env: Env) -> Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&DataKey::Contributors)
+            .unwrap_or(Vec::new(&env))
+    }
+
 }
