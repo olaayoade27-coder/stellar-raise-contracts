@@ -1031,6 +1031,63 @@ fn test_cancel_by_non_creator_panics() {
 #[test]
 #[should_panic(expected = "campaign is not active")]
 fn test_cancel_twice_panics() {
+#[should_panic(expected = "amount below minimum")]
+fn test_contribute_below_minimum_panics() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 3600;
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 10_000;
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &default_title(&env), &default_description(&env), &None);
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 5_000);
+
+    client.contribute(&contributor, &5_000); // should panic
+}
+
+#[test]
+fn test_contribute_exact_minimum() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 3600;
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 10_000;
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &default_title(&env), &default_description(&env), &None);
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 10_000);
+
+    client.contribute(&contributor, &10_000);
+
+    assert_eq!(client.total_raised(), 10_000);
+    assert_eq!(client.contribution(&contributor), 10_000);
+}
+
+#[test]
+fn test_contribute_above_minimum() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 3600;
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 10_000;
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &default_title(&env), &default_description(&env), &None);
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 50_000);
+
+    client.contribute(&contributor, &50_000);
+
+    assert_eq!(client.total_raised(), 50_000);
+    assert_eq!(client.contribution(&contributor), 50_000);
+}
+
+// ── Roadmap Tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_add_single_roadmap_item() {
+#[test]
+fn test_token_address_view() {
     let (env, client, creator, token_address, _admin) = setup_env();
     let deadline = env.ledger().timestamp() + 3600;
     default_init(&client, &creator, &token_address, deadline);
@@ -2622,4 +2679,8 @@ proptest! {
             crate::ContractError::CampaignEnded
         );
     }
+
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+
+    assert_eq!(client.token(), token_address);
 }
