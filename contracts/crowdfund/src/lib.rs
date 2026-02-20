@@ -180,12 +180,16 @@ pub enum DataKey {
     /// Boolean flag — when true, contribute() and withdraw() are blocked.
     Paused,
     /// Individual pledge by address (not yet transferred).
+    /// Whether the contract is paused.
+    Paused,
+    /// Individual pledge by address.
     Pledge(Address),
     /// Total amount pledged (not yet transferred).
     TotalPledged,
     /// List of all pledger addresses.
     Pledgers,
     /// List of stretch goal milestones above the primary goal.
+    /// List of stretch goal milestones.
     StretchGoals,
 }
 
@@ -236,6 +240,7 @@ pub enum ContractError {
     NegativeAmount = 16,
     NegativeAmount = 11,
     Overflow = 6,
+    ContractPaused = 7,
 }
 
 /// Interface for an external NFT contract used to mint contributor rewards.
@@ -301,6 +306,56 @@ impl CrowdfundContract {
                 bonus_goal_description,
             },
         )
+        // Prevent re-initialization.
+        if env.storage().instance().has(&DataKey::Creator) {
+            return Err(ContractError::AlreadyInitialized);
+        }
+
+        let eb_deadline = match early_bird_deadline {
+            Some(eb) => {
+                if eb >= deadline {
+                    panic!("early bird deadline must be before campaign deadline");
+                }
+                eb
+            }
+            None => core::cmp::min(env.ledger().timestamp() + 86400, deadline.saturating_sub(1)),
+        };
+
+        creator.require_auth();
+
+        // Validate platform fee if provided.
+        if let Some(ref config) = platform_config {
+            if config.fee_bps > 10_000 {
+                panic!("platform fee cannot exceed 100%");
+            }
+        }
+
+        env.storage().instance().set(&DataKey::Creator, &creator);
+        env.storage().instance().set(&DataKey::Token, &token);
+        env.storage().instance().set(&DataKey::Goal, &goal);
+        env.storage().instance().set(&DataKey::Deadline, &deadline);
+        env.storage()
+            .instance()
+            .set(&DataKey::MinContribution, &min_contribution);
+        env.storage().instance().set(&DataKey::Title, &title);
+        env.storage().instance().set(&DataKey::Description, &description);
+        env.storage().instance().set(&DataKey::TotalRaised, &0i128);
+        env.storage()
+            .instance()
+            .set(&DataKey::Status, &Status::Active);
+        env.storage().instance().set(&DataKey::Paused, &false);
+
+        let empty_contributors: Vec<Address> = Vec::new(&env);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Contributors, &empty_contributors);
+
+        let empty_roadmap: Vec<RoadmapItem> = Vec::new(&env);
+        env.storage()
+            .instance()
+            .set(&DataKey::Roadmap, &empty_roadmap);
+
+        Ok(())
     }
 
     /// Returns the list of all contributor addresses.
@@ -316,6 +371,11 @@ impl CrowdfundContract {
     /// The contributor must authorize the call. Contributions are rejected
     /// after the deadline has passed or if the campaign is not active.
     pub fn contribute(env: Env, contributor: Address, amount: i128) -> Result<(), ContractError> {
+        let paused: bool = env.storage().instance().get(&DataKey::Paused).unwrap_or(false);
+        if paused {
+            return Err(ContractError::ContractPaused);
+        }
+
         contributor.require_auth();
 
         // Guard: campaign must be active.
@@ -848,6 +908,11 @@ impl CrowdfundContract {
     /// If a platform fee is configured, deducts the fee and transfers it to
     /// the platform address, then sends the remainder to the creator.
     pub fn withdraw(env: Env) -> Result<(), ContractError> {
+        let paused: bool = env.storage().instance().get(&DataKey::Paused).unwrap_or(false);
+        if paused {
+            return Err(ContractError::ContractPaused);
+        }
+
         let status: Status = env.storage().instance().get(&DataKey::Status).unwrap();
         if status != Status::Succeeded {
             panic!("campaign must be in Succeeded state to withdraw");
@@ -1023,6 +1088,14 @@ impl CrowdfundContract {
         contributor.require_auth();
 
         // Check campaign status is Active.
+    /// Refund all contributors — callable by anyone after the deadline
+    /// if the goal was **not** met.
+    pub fn refund(env: Env) -> Result<(), ContractError> {
+        let paused: bool = env.storage().instance().get(&DataKey::Paused).unwrap_or(false);
+        if paused {
+            return Err(ContractError::ContractPaused);
+        }
+
         let status: Status = env.storage().instance().get(&DataKey::Status).unwrap();
         if status != Status::Active {
             panic!("campaign is not active");
@@ -1148,6 +1221,24 @@ impl CrowdfundContract {
             (soroban_sdk::Symbol::new(&env, "upgrade"), admin),
             new_wasm_hash,
         );
+    }
+
+    /// Pause or unpause the contract — creator-only.
+    ///
+    /// When paused, all contributions, withdrawals, and refunds are blocked.
+    /// This is a security mechanism to halt operations in case of detected
+    /// vulnerabilities or external threats.
+    ///
+    /// # Arguments
+    /// * `paused` – True to pause, false to unpause.
+    pub fn set_paused(env: Env, paused: bool) {
+        let creator: Address = env.storage().instance().get(&DataKey::Creator).unwrap();
+        creator.require_auth();
+
+        env.storage().instance().set(&DataKey::Paused, &paused);
+
+        let event_name = if paused { "paused" } else { "unpaused" };
+        env.events().publish(("campaign", event_name), ());
     }
 
     /// Update campaign metadata — only callable by the creator while the
