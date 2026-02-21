@@ -16,3 +16,11 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [dependencies]
 soroban-sdk = "0.7.0"
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
