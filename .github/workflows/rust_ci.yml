@@ -108,6 +108,24 @@ jobs:
 
       - name: Generate Rustdoc
         run: cargo doc --no-deps --workspace
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run coverage report
+        run: cargo tarpaulin --workspace --out Xml
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: cobertura.xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: cobertura.xml
+          fail_ci_if_error: false
 
       - name: Report WASM binary size
         run: ls -lh target/wasm32-unknown-unknown/release/crowdfund.wasm
