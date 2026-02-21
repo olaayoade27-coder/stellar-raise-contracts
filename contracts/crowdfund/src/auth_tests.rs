@@ -69,10 +69,12 @@ fn test_withdraw_only_creator_can_withdraw() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &1_000,
         &None,
         &None,
+        &min_contribution,
         &None,
     );
 
@@ -104,6 +106,10 @@ fn test_contribute_requires_own_auth() {
         &1_000,
         &None,
         &None,
+        &goal,
+        &(goal * 2),
+        &deadline,
+        &min_contribution,
         &None,
     );
 
@@ -113,4 +119,42 @@ fn test_contribute_requires_own_auth() {
 
     assert_eq!(client.total_raised(), 1_000_000);
     assert_eq!(client.contribution(&contributor), 1_000_000);
+    
+    // Verify the contribution was recorded for the correct contributor
+    let contribution = client.contribution(&contributor);
+    assert_eq!(contribution, 1_000_000);
+}
+
+/// Test: Initialize requires creator's auth
+///
+/// Title: Initialize must be called by the campaign creator
+///
+/// Description: The contract's initialize function calls `creator.require_auth()`,
+/// ensuring that only the designated creator address can initialize a new campaign.
+/// This prevents unauthorized parties from initializing campaigns.
+#[test]
+fn test_initialize_requires_creator_auth() {
+    let (env, client, creator, token_address, _) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 3600;
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 1_000;
+
+    // The contract requires creator.require_auth() - only the creator
+    // address can initialize the campaign
+    client.initialize(
+        &creator,
+        &token_address,
+        &goal,
+        &(goal * 2),
+        &deadline,
+        &min_contribution,
+        &None,
+    );
+
+    // Verify initialization was successful
+    assert_eq!(client.goal(), goal);
+    assert_eq!(client.deadline(), deadline);
+    assert_eq!(client.min_contribution(), min_contribution);
+    assert_eq!(client.total_raised(), 0);
 }
