@@ -775,9 +775,24 @@ fn test_bug_condition_exploration_all_error_conditions_panic() {
         let result = client.try_initialize(&creator, &token_address, &goal, &deadline, &1_000, &default_title(&env), &default_description(&env), &None);
         
 
-        client.initialize(&creator, &token_address, &goal, &(goal * 2), &deadline, &1_000, &None);
-        let result =
-            client.try_initialize(&creator, &token_address, &goal, &(goal * 2), &deadline, &1_000, &None);
+        client.initialize(
+            &creator,
+            &token_address,
+            &goal,
+            &(goal * 2),
+            &deadline,
+            &1_000,
+            &None,
+        );
+        let result = client.try_initialize(
+            &creator,
+            &token_address,
+            &goal,
+            &(goal * 2),
+            &deadline,
+            &1_000,
+            &None,
+        );
 
         assert!(result.is_err());
         assert_eq!(
@@ -795,6 +810,15 @@ fn test_bug_condition_exploration_all_error_conditions_panic() {
         
         client.initialize(&creator, &token_address, &goal, &deadline, &1_000, &None);
         client.initialize(&creator, &token_address, &goal, &(goal * 2), &deadline, &1_000, &None);
+        client.initialize(
+            &creator,
+            &token_address,
+            &goal,
+            &(goal * 2),
+            &deadline,
+            &1_000,
+            &None,
+        );
 
         env.ledger().set_timestamp(deadline + 1);
 
@@ -815,6 +839,15 @@ fn test_bug_condition_exploration_all_error_conditions_panic() {
         
         client.initialize(&creator, &token_address, &goal, &deadline, &1_000, &None);
         client.initialize(&creator, &token_address, &goal, &(goal * 2), &deadline, &1_000, &None);
+        client.initialize(
+            &creator,
+            &token_address,
+            &goal,
+            &(goal * 2),
+            &deadline,
+            &1_000,
+            &None,
+        );
 
         let contributor = Address::generate(&env);
         mint_to(&env, &token_address, &admin, &contributor, 1_000_000);
@@ -838,6 +871,15 @@ fn test_bug_condition_exploration_all_error_conditions_panic() {
         
         client.initialize(&creator, &token_address, &goal, &deadline, &1_000, &None);
         client.initialize(&creator, &token_address, &goal, &(goal * 2), &deadline, &1_000, &None);
+        client.initialize(
+            &creator,
+            &token_address,
+            &goal,
+            &(goal * 2),
+            &deadline,
+            &1_000,
+            &None,
+        );
 
         let contributor = Address::generate(&env);
         mint_to(&env, &token_address, &admin, &contributor, 500_000);
@@ -870,6 +912,15 @@ fn test_bug_condition_exploration_all_error_conditions_panic() {
         client.contribute(&contributor, &500_000);
         client.initialize(&creator, &token_address, &goal, &deadline, &1_000, &None);
         client.initialize(&creator, &token_address, &goal, &(goal * 2), &deadline, &1_000, &None);
+        client.initialize(
+            &creator,
+            &token_address,
+            &goal,
+            &(goal * 2),
+            &deadline,
+            &1_000,
+            &None,
+        );
 
         let contributor = Address::generate(&env);
         mint_to(&env, &token_address, &admin, &contributor, 500_000);
@@ -893,6 +944,15 @@ fn test_bug_condition_exploration_all_error_conditions_panic() {
         
         client.initialize(&creator, &token_address, &goal, &deadline, &1_000, &None);
         client.initialize(&creator, &token_address, &goal, &(goal * 2), &deadline, &1_000, &None);
+        client.initialize(
+            &creator,
+            &token_address,
+            &goal,
+            &(goal * 2),
+            &deadline,
+            &1_000,
+            &None,
+        );
 
         let contributor = Address::generate(&env);
         mint_to(&env, &token_address, &admin, &contributor, 1_000_000);
@@ -1335,6 +1395,9 @@ fn test_contribute_below_minimum_panics() {
 }
 
 #[test]
+// ── Minimum Contribution Tests ─────────────────────────────────────────────
+
+#[test]
 fn test_contribute_exact_minimum() {
     let (env, client, creator, token_address, admin) = setup_env();
 
@@ -1411,6 +1474,7 @@ fn test_get_user_tier_bronze_level() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -1443,6 +1507,7 @@ fn test_get_user_tier_gold_level() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -1466,7 +1531,7 @@ fn test_get_user_tier_gold_level() {
 
 #[test]
 fn test_get_user_tier_non_contributor_returns_none() {
-    let (env, client, creator, token_address, admin) = setup_env();
+    let (env, client, creator, token_address, _admin) = setup_env();
 
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
@@ -1475,6 +1540,7 @@ fn test_get_user_tier_non_contributor_returns_none() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -1499,6 +1565,7 @@ fn test_get_user_tier_no_tiers_defined_returns_none() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -1523,6 +1590,7 @@ fn test_get_user_tier_highest_qualifying_tier_returned() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -1556,6 +1624,7 @@ fn test_add_reward_tier_non_creator_rejected() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -1578,6 +1647,7 @@ fn test_add_reward_tier_rejects_zero_min_amount() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -1598,6 +1668,7 @@ fn test_reward_tiers_view() {
         &creator,
         &token_address,
         &goal,
+        &(goal * 2),
         &deadline,
         &min_contribution,
         &None,
@@ -3858,7 +3929,15 @@ fn test_contribute_rejected_when_paused() {
         &soroban_sdk::Vec::new(&env),
     );
 
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
+    client.initialize(
+        &creator,
+        &token_address,
+        &goal,
+        &(goal * 2),
+        &deadline,
+        &min_contribution,
+        &None,
+    );
 
     // Pause the contract
     client.set_paused(&true);
@@ -3870,7 +3949,10 @@ fn test_contribute_rejected_when_paused() {
     let result = client.try_contribute(&contributor, &5_000);
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().unwrap(), crate::ContractError::ContractPaused);
+    assert_eq!(
+        result.unwrap_err().unwrap(),
+        crate::ContractError::ContractPaused
+    );
 }
 
 #[test]
@@ -3881,7 +3963,15 @@ fn test_withdraw_rejected_when_paused() {
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
 
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
+    client.initialize(
+        &creator,
+        &token_address,
+        &goal,
+        &(goal * 2),
+        &deadline,
+        &min_contribution,
+        &None,
+    );
 
     // Contribute to meet goal
     let contributor = Address::generate(&env);
@@ -3898,7 +3988,10 @@ fn test_withdraw_rejected_when_paused() {
     let result = client.try_withdraw();
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().unwrap(), crate::ContractError::ContractPaused);
+    assert_eq!(
+        result.unwrap_err().unwrap(),
+        crate::ContractError::ContractPaused
+    );
 }
 
 #[test]
@@ -3909,7 +4002,15 @@ fn test_refund_rejected_when_paused() {
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
 
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
+    client.initialize(
+        &creator,
+        &token_address,
+        &goal,
+        &(goal * 2),
+        &deadline,
+        &min_contribution,
+        &None,
+    );
 
     // Contribute but don't meet goal
     let contributor = Address::generate(&env);
@@ -3926,7 +4027,10 @@ fn test_refund_rejected_when_paused() {
     let result = client.try_refund();
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().unwrap(), crate::ContractError::ContractPaused);
+    assert_eq!(
+        result.unwrap_err().unwrap(),
+        crate::ContractError::ContractPaused
+    );
 }
 
 #[test]
@@ -3937,7 +4041,15 @@ fn test_all_interactions_succeed_after_unpause() {
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
 
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
+    client.initialize(
+        &creator,
+        &token_address,
+        &goal,
+        &(goal * 2),
+        &deadline,
+        &min_contribution,
+        &None,
+    );
 
     // Pause the contract
     client.set_paused(&true);
@@ -3973,7 +4085,15 @@ fn test_set_paused_rejected_from_non_creator() {
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
 
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
+    client.initialize(
+        &creator,
+        &token_address,
+        &goal,
+        &(goal * 2),
+        &deadline,
+        &min_contribution,
+        &None,
+    );
 
     env.mock_all_auths_allowing_non_root_auth();
     env.set_auths(&[]);
