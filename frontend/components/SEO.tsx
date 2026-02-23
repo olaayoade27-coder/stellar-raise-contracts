@@ -11,6 +11,7 @@ const DEFAULT_TITLE = "CrowdFund - Decentralized Crowdfunding on Stellar";
 const DEFAULT_DESCRIPTION =
   "Launch and support campaigns on a transparent, decentralized crowdfunding platform built on the Stellar network using Soroban smart contracts.";
 const DEFAULT_IMAGE = "/og-image.jpg";
+const DEFAULT_IMAGE = "/images/og-default.png";
 const SITE_URL = "https://your-crowdfund-app.com";
 
 const SEO = ({

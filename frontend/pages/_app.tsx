@@ -7,6 +7,13 @@ function MyApp({ Component, pageProps }) {
       <SEO />
       <Component {...pageProps} />
     </GlobalErrorBoundary>
+
+function MyApp({ Component, pageProps }) {
+  return (
+    <>
+      <SEO />
+      <Component {...pageProps} />
+    </>
   );
 }
 
