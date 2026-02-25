@@ -120,6 +120,7 @@ fn test_create_multiple_campaigns() {
     // Verify count.
     assert_eq!(factory.campaign_count(), 3);
 }
+use soroban_sdk::Env;
 
 #[test]
 fn test_empty_registry() {
@@ -128,7 +129,6 @@ fn test_empty_registry() {
     let factory_id = env.register(FactoryContract, ());
     let factory = FactoryContractClient::new(&env, &factory_id);
 
-    // Verify empty state.
     let campaigns = factory.campaigns();
     assert_eq!(campaigns.len(), 0);
     assert_eq!(factory.campaign_count(), 0);
