@@ -54,3 +54,5 @@ yarn-error.log*
 *.bak
 *.tmp
 .kiro/
+
+contracts/*/test_snapshots/
