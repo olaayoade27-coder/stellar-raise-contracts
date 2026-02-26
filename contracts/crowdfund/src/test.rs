@@ -47,7 +47,7 @@ fn test_initialize() {
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
 
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     assert_eq!(client.goal(), goal);
     assert_eq!(client.deadline(), deadline);
@@ -64,8 +64,8 @@ fn test_double_initialize_panics() {
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
 
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution); // should panic
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None); // should panic
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_contribute() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 500_000);
@@ -93,7 +93,7 @@ fn test_multiple_contributions() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
@@ -116,7 +116,7 @@ fn test_contribute_after_deadline_panics() {
     let deadline = env.ledger().timestamp() + 100;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     // Fast-forward past the deadline.
     env.ledger().set_timestamp(deadline + 1);
@@ -134,7 +134,7 @@ fn test_withdraw_after_goal_met() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 1_000_000);
@@ -163,7 +163,7 @@ fn test_withdraw_before_deadline_panics() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 1_000_000);
@@ -180,7 +180,7 @@ fn test_withdraw_goal_not_reached_panics() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 500_000);
@@ -199,7 +199,7 @@ fn test_refund_when_goal_not_met() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
@@ -229,7 +229,7 @@ fn test_refund_when_goal_reached_panics() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 1_000_000);
@@ -248,7 +248,7 @@ fn test_double_withdraw_panics() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 1_000_000);
@@ -268,7 +268,7 @@ fn test_double_refund_panics() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let alice = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &alice, 500_000);
@@ -287,7 +287,7 @@ fn test_cancel_with_no_contributions() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     client.cancel();
 
@@ -301,7 +301,7 @@ fn test_cancel_with_contributions() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
@@ -338,7 +338,7 @@ fn test_cancel_by_non_creator_panics() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     env.mock_all_auths_allowing_non_root_auth();
     env.set_auths(&[]);
@@ -366,7 +366,7 @@ fn test_contribute_below_minimum_panics() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 10_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 5_000);
@@ -381,7 +381,7 @@ fn test_contribute_exact_minimum() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 10_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 10_000);
@@ -399,7 +399,7 @@ fn test_contribute_above_minimum() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 10_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 50_000);
@@ -419,7 +419,7 @@ fn test_stats_no_contributions() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let stats = client.get_stats();
 
@@ -438,7 +438,7 @@ fn test_stats_single_contributor() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 500_000);
@@ -461,7 +461,7 @@ fn test_stats_multiple_contributors() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
@@ -492,7 +492,7 @@ fn test_stats_progress_capped_at_10000() {
     let deadline = env.ledger().timestamp() + 3600;
     let goal: i128 = 1_000_000;
     let min_contribution: i128 = 1_000;
-    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution);
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     let contributor = Address::generate(&env);
     mint_to(&env, &token_address, &admin, &contributor, 1_500_000);
@@ -506,4 +506,130 @@ fn test_stats_progress_capped_at_10000() {
     assert_eq!(stats.contributor_count, 1);
     assert_eq!(stats.average_contribution, 1_500_000);
     assert_eq!(stats.largest_contribution, 1_500_000);
+}
+
+// ── Auto-Extension Tests ────────────────────────────────────────────────────
+
+#[test]
+fn test_auto_extension_triggered() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 7200; // 2 hours from now
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 1_000;
+    let auto_extension_threshold: i128 = 100_000;
+
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &Some(auto_extension_threshold));
+
+    // Move to within the auto-extension window (last hour).
+    env.ledger().set_timestamp(deadline - 1800); // 30 minutes before deadline
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 150_000);
+    client.contribute(&contributor, &150_000);
+
+    // Deadline should be extended by 24 hours.
+    let new_deadline = client.deadline();
+    assert_eq!(new_deadline, deadline + 86400);
+}
+
+#[test]
+fn test_auto_extension_not_triggered_below_threshold() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 7200;
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 1_000;
+    let auto_extension_threshold: i128 = 100_000;
+
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &Some(auto_extension_threshold));
+
+    // Move to within the auto-extension window.
+    env.ledger().set_timestamp(deadline - 1800);
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 50_000);
+    client.contribute(&contributor, &50_000);
+
+    // Deadline should NOT be extended (contribution below threshold).
+    assert_eq!(client.deadline(), deadline);
+}
+
+#[test]
+fn test_auto_extension_not_triggered_outside_window() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 7200;
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 1_000;
+    let auto_extension_threshold: i128 = 100_000;
+
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &Some(auto_extension_threshold));
+
+    // Contribute outside the auto-extension window (more than 1 hour before deadline).
+    env.ledger().set_timestamp(deadline - 5000);
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 150_000);
+    client.contribute(&contributor, &150_000);
+
+    // Deadline should NOT be extended (outside window).
+    assert_eq!(client.deadline(), deadline);
+}
+
+#[test]
+fn test_auto_extension_cap_prevents_infinite_extension() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 7200;
+    let goal: i128 = 10_000_000;
+    let min_contribution: i128 = 1_000;
+    let auto_extension_threshold: i128 = 100_000;
+
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &Some(auto_extension_threshold));
+
+    // Trigger 5 extensions (the maximum).
+    for _i in 0..5 {
+        let current_deadline = client.deadline();
+        env.ledger().set_timestamp(current_deadline - 1800);
+
+        let contributor = Address::generate(&env);
+        mint_to(&env, &token_address, &admin, &contributor, 150_000);
+        client.contribute(&contributor, &150_000);
+
+        // Verify extension occurred.
+        assert_eq!(client.deadline(), current_deadline + 86400);
+    }
+
+    // Try to trigger a 6th extension.
+    let final_deadline = client.deadline();
+    env.ledger().set_timestamp(final_deadline - 1800);
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 150_000);
+    client.contribute(&contributor, &150_000);
+
+    // Deadline should NOT be extended (cap reached).
+    assert_eq!(client.deadline(), final_deadline);
+}
+
+#[test]
+fn test_auto_extension_disabled_when_not_configured() {
+    let (env, client, creator, token_address, admin) = setup_env();
+
+    let deadline = env.ledger().timestamp() + 7200;
+    let goal: i128 = 1_000_000;
+    let min_contribution: i128 = 1_000;
+
+    client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
+
+    // Move to within the auto-extension window.
+    env.ledger().set_timestamp(deadline - 1800);
+
+    let contributor = Address::generate(&env);
+    mint_to(&env, &token_address, &admin, &contributor, 150_000);
+    client.contribute(&contributor, &150_000);
+
+    // Deadline should NOT be extended (feature not configured).
+    assert_eq!(client.deadline(), deadline);
 }

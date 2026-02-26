@@ -5,6 +5,17 @@ use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, Vec
 #[cfg(test)]
 mod test;
 
+// ── Constants ───────────────────────────────────────────────────────────────
+
+/// Number of seconds before deadline that triggers auto-extension eligibility (1 hour).
+const AUTO_EXTENSION_WINDOW: u64 = 3600;
+
+/// Number of seconds the deadline is extended by when triggered (24 hours).
+const AUTO_EXTENSION_DURATION: u64 = 86400;
+
+/// Maximum number of auto-extensions allowed to prevent infinite deadline creep.
+const MAX_AUTO_EXTENSIONS: u32 = 5;
+
 // ── Data Keys ───────────────────────────────────────────────────────────────
 
 #[derive(Clone, PartialEq)]
@@ -48,6 +59,10 @@ pub enum DataKey {
     Status,
     /// Minimum contribution amount.
     MinContribution,
+    /// Minimum contribution amount required to trigger auto-extension.
+    AutoExtensionThreshold,
+    /// Number of times the deadline has been auto-extended.
+    ExtensionCount,
 }
 
 // ── Contract ────────────────────────────────────────────────────────────────
@@ -60,11 +75,12 @@ impl CrowdfundContract {
     /// Initializes a new crowdfunding campaign.
     ///
     /// # Arguments
-    /// * `creator`          – The campaign creator's address.
-    /// * `token`            – The token contract address used for contributions.
-    /// * `goal`             – The funding goal (in the token's smallest unit).
-    /// * `deadline`         – The campaign deadline as a ledger timestamp.
-    /// * `min_contribution` – The minimum contribution amount.
+    /// * `creator`                   – The campaign creator's address.
+    /// * `token`                     – The token contract address used for contributions.
+    /// * `goal`                      – The funding goal (in the token's smallest unit).
+    /// * `deadline`                  – The campaign deadline as a ledger timestamp.
+    /// * `min_contribution`          – The minimum contribution amount.
+    /// * `auto_extension_threshold`  – Optional minimum contribution to trigger auto-extension.
     pub fn initialize(
         env: Env,
         creator: Address,
@@ -72,6 +88,7 @@ impl CrowdfundContract {
         goal: i128,
         deadline: u64,
         min_contribution: i128,
+        auto_extension_threshold: Option<i128>,
     ) {
         // Prevent re-initialization.
         if env.storage().instance().has(&DataKey::Creator) {
@@ -87,6 +104,12 @@ impl CrowdfundContract {
         env.storage().instance().set(&DataKey::MinContribution, &min_contribution);
         env.storage().instance().set(&DataKey::TotalRaised, &0i128);
         env.storage().instance().set(&DataKey::Status, &Status::Active);
+        env.storage().instance().set(&DataKey::ExtensionCount, &0u32);
+
+        // Store auto-extension threshold if provided.
+        if let Some(threshold) = auto_extension_threshold {
+            env.storage().instance().set(&DataKey::AutoExtensionThreshold, &threshold);
+        }
 
         let empty_contributors: Vec<Address> = Vec::new(&env);
         env.storage()
@@ -148,10 +171,33 @@ impl CrowdfundContract {
             .get(&DataKey::Contributors)
             .unwrap();
         if !contributors.contains(&contributor) {
-            contributors.push_back(contributor);
+            contributors.push_back(contributor.clone());
             env.storage()
                 .instance()
                 .set(&DataKey::Contributors, &contributors);
+        }
+
+        // Check for auto-extension eligibility.
+        let auto_extension_threshold: Option<i128> = env.storage().instance().get(&DataKey::AutoExtensionThreshold);
+        if let Some(threshold) = auto_extension_threshold {
+            let current_time = env.ledger().timestamp();
+            let extension_count: u32 = env.storage().instance().get(&DataKey::ExtensionCount).unwrap_or(0);
+
+            // Check if within extension window, amount meets threshold, and under extension cap.
+            if current_time >= deadline - AUTO_EXTENSION_WINDOW
+                && amount >= threshold
+                && extension_count < MAX_AUTO_EXTENSIONS
+            {
+                let new_deadline = deadline + AUTO_EXTENSION_DURATION;
+                env.storage().instance().set(&DataKey::Deadline, &new_deadline);
+                env.storage().instance().set(&DataKey::ExtensionCount, &(extension_count + 1));
+
+                // Emit deadline_extended event.
+                env.events().publish(
+                    ("campaign", "deadline_extended"),
+                    (deadline, new_deadline, contributor, amount),
+                );
+            }
         }
     }
 
