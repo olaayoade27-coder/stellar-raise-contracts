@@ -255,6 +255,7 @@ pub enum Status {
     Cancelled,
 }
 
+/// Represents a single roadmap milestone with a date and description.
 #[derive(Clone)]
 #[contracttype]
 pub struct RoadmapItem {
@@ -299,6 +300,7 @@ pub struct Subscription {
     pub last_processed: u64,
 }
 
+/// Snapshot of campaign funding statistics returned by [`CrowdfundContract::get_stats`].
 #[derive(Clone)]
 #[contracttype]
 pub struct CampaignStats {
@@ -310,6 +312,7 @@ pub struct CampaignStats {
     pub largest_contribution: i128,
 }
 
+/// Represents all storage keys used by the crowdfund contract.
 #[derive(Clone)]
 #[contracttype]
 pub struct CampaignInfo {
@@ -348,13 +351,19 @@ pub enum DataKey {
     TotalRaised,
     /// Individual contribution amount keyed by contributor address.
     Token,
+    /// The funding goal in token units.
     Goal,
+    /// The campaign deadline as a Unix timestamp.
     Deadline,
+    /// The running total of tokens raised.
     TotalRaised,
+    /// Individual contribution amount keyed by contributor address.
     Contribution(Address),
+    /// List of all contributor addresses.
     Contributors,
     /// Current campaign status.
     Status,
+    /// Minimum contribution amount.
     MinContribution,
     Pledge(Address),
     /// Total amount pledged but not yet collected.
@@ -375,8 +384,10 @@ pub enum DataKey {
     Roadmap,
     /// The designated admin address (set to creator at initialization).
     Admin,
+    /// Campaign title.
     Title,
     Description,
+    /// Campaign social links.
     SocialLinks,
     /// Platform fee configuration.
     PlatformConfig,
@@ -472,6 +483,7 @@ use soroban_sdk::contracterror;
 
 use soroban_sdk::contracterror;
 
+/// Errors that can be returned by the crowdfund contract.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -588,9 +600,11 @@ pub trait NftContract {
 /// The main crowdfunding contract.
 #[contractclient(name = "NftContractClient")]
 pub trait NftContract {
+    /// Mints an NFT to the given address and returns the new token ID.
     fn mint(env: Env, to: Address) -> u128;
 }
 
+/// The main crowdfunding contract.
 #[contract]
 pub struct CrowdfundContract;
 
@@ -795,7 +809,7 @@ impl CrowdfundContract {
         env.storage().instance().set(&DataKey::Creator, &creator);
         env.storage().instance().set(&DataKey::Token, &token);
 
-        /// Returns the list of all contributor addresses.
+        // Returns the list of all contributor addresses.
         #[allow(dead_code)]
         pub fn contributors(env: Env) -> Vec<Address> {
             env.storage()
@@ -2625,6 +2639,10 @@ impl CrowdfundContract {
 
     /// Add a roadmap item to the campaign timeline.
     ///
+    /// Only the creator can add roadmap items. The date must be in the future
+    /// and the description must not be empty.
+    /// Add a roadmap item — only callable by the creator.
+    ///
     /// # Arguments
     /// * `date`        – Future Unix timestamp for the milestone.
     /// * `description` – Non-empty description of the milestone.
@@ -2737,6 +2755,7 @@ impl CrowdfundContract {
 
         0
     }
+    /// Returns the total amount of tokens raised so far.
     pub fn total_raised(env: Env) -> i128 {
         env.storage()
             .instance()
@@ -3043,6 +3062,7 @@ impl CrowdfundContract {
         }
     }
 
+    /// Returns the campaign title.
     pub fn title(env: Env) -> String {
         env.storage()
             .instance()
@@ -3050,6 +3070,7 @@ impl CrowdfundContract {
             .unwrap_or_else(|| String::from_str(&env, ""))
     }
 
+    /// Returns the campaign description.
     pub fn description(env: Env) -> String {
         env.storage()
             .instance()
@@ -3057,6 +3078,7 @@ impl CrowdfundContract {
             .unwrap_or_else(|| String::from_str(&env, ""))
     }
 
+    /// Returns the campaign social links.
     pub fn socials(env: Env) -> String {
         env.storage()
             .instance()
