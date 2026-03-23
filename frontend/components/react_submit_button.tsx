@@ -18,12 +18,20 @@ import React, { useState } from "react";
  *   success     → idle | disabled
  *   error       → idle | submitting | disabled
  *   disabled    → idle
+import React from "react";
+
+/**
+ * @title React Submit Button Component States
+ * @notice Centralized submit-button state model for consistent UX and safe defaults.
+ * @dev Uses strict union types and deterministic state mapping to reduce misuse.
  */
 export type SubmitButtonState = "idle" | "submitting" | "success" | "error" | "disabled";
 
 /**
  * @notice Optional per-state label overrides.
  * @dev Values are normalized: non-strings, empty strings, and control characters are rejected.
+ * @title Submit Button Labels
+ * @notice Optional custom labels for each user-visible state.
  */
 export interface SubmitButtonLabels {
   idle?: string;
@@ -62,6 +70,19 @@ export interface ReactSubmitButtonProps {
 const MAX_LABEL_LENGTH = 80;
 const CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/g;
 
+ * @title Submit Button Props
+ * @notice Defines behavior, labeling, and accessibility requirements.
+ */
+export interface ReactSubmitButtonProps {
+  state: SubmitButtonState;
+  labels?: SubmitButtonLabels;
+  onClick?: () => void | Promise<void>;
+  className?: string;
+  id?: string;
+  type?: "button" | "submit";
+  disabled?: boolean;
+}
+
 const DEFAULT_LABELS: Required<SubmitButtonLabels> = {
   idle: "Submit",
   submitting: "Submitting...",
@@ -81,6 +102,43 @@ export const ALLOWED_TRANSITIONS: Record<SubmitButtonState, SubmitButtonState[]>
   error: ["idle", "submitting", "disabled"],
   disabled: ["idle"],
 };
+ * @title Safe Label Resolver
+ * @notice Provides a bounded, non-empty label to avoid empty UI text states.
+ * @dev React escapes text content by default; this function only normalizes.
+ */
+export function resolveSubmitButtonLabel(
+  state: SubmitButtonState,
+  labels?: SubmitButtonLabels,
+): string {
+  const candidate = labels?.[state];
+
+  if (typeof candidate !== "string") {
+    return DEFAULT_LABELS[state];
+  }
+
+  const normalized = candidate.trim();
+  if (!normalized) {
+    return DEFAULT_LABELS[state];
+  }
+
+  return normalized.length > 80 ? `${normalized.slice(0, 77)}...` : normalized;
+}
+
+/**
+ * @title Disabled Guard
+ * @notice Computes final disabled state from explicit disabled flag and workflow state.
+ */
+export function isSubmitButtonDisabled(state: SubmitButtonState, disabled?: boolean): boolean {
+  return Boolean(disabled) || state === "disabled" || state === "submitting";
+}
+
+/**
+ * @title Aria Busy Guard
+ * @notice Announces loading semantics only during active submission.
+ */
+export function isSubmitButtonBusy(state: SubmitButtonState): boolean {
+  return state === "submitting";
+}
 
 const BASE_STYLE: React.CSSProperties = {
   minHeight: "44px",
@@ -100,6 +158,7 @@ const BASE_STYLE: React.CSSProperties = {
  * @security All values are hardcoded constants — no dynamic CSS injection from user input.
  */
 const STATE_STYLES: Record<SubmitButtonState, React.CSSProperties> = {
+const STATE_STYLE_MAP: Record<SubmitButtonState, React.CSSProperties> = {
   idle: { backgroundColor: "#4f46e5" },
   submitting: { backgroundColor: "#6366f1" },
   success: { backgroundColor: "#16a34a", borderColor: "#15803d" },
@@ -208,6 +267,13 @@ const ReactSubmitButton = ({
   state,
   previousState,
   strictTransitions = true,
+/**
+ * @title React Submit Button
+ * @notice Reusable submit button with typed state machine for scalable workflows.
+ * @dev Avoids exposing raw HTML injection paths and enforces accessible semantics.
+ */
+const ReactSubmitButton = ({
+  state,
   labels,
   onClick,
   className,
@@ -233,6 +299,9 @@ const ReactSubmitButton = ({
       setIsLocallySubmitting(false);
     }
   };
+  const label = resolveSubmitButtonLabel(state, labels);
+  const computedDisabled = isSubmitButtonDisabled(state, disabled);
+  const ariaBusy = isSubmitButtonBusy(state);
 
   return (
     <button
@@ -246,6 +315,16 @@ const ReactSubmitButton = ({
       data-state={resolvedState}
       onClick={blocked ? undefined : handleClick}
       style={{ ...BASE_STYLE, ...STATE_STYLES[resolvedState] }}
+      disabled={computedDisabled}
+      aria-busy={ariaBusy}
+      aria-live="polite"
+      aria-label={label}
+      onClick={computedDisabled ? undefined : onClick}
+      style={{
+        ...BASE_STYLE,
+        ...STATE_STYLE_MAP[state],
+        ...(computedDisabled ? { cursor: "not-allowed", opacity: 0.7 } : {}),
+      }}
     >
       {label}
     </button>
