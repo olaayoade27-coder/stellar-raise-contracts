@@ -128,3 +128,30 @@ fn test_emit_ping_panics_without_auth() {
     // Without mocking, require_auth() should panic and the test expects that.
     client.emit_ping(&from, &7_i32);
 }
+use soroban_sdk::{Env};
+
+#[test]
+fn test_init_and_auth() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SorobanSdkMinor);
+    let client = SorobanSdkMinorClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    
+    // Test initialization
+    client.init(&admin);
+    
+    assert_eq!(client.get_admin(), admin);
+}
+
+#[test]
+fn test_check_auth() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SorobanSdkMinor);
+    let client = SorobanSdkMinorClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+    
+    // In tests, require_auth is satisfied automatically unless specific auth mocks are used.
+    assert!(client.check_auth(&user));
+}

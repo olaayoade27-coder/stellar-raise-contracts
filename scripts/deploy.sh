@@ -30,12 +30,10 @@ echo "[LOG] step=deploy status=ok contract_id=$CONTRACT_ID"
 echo "[LOG] step=initialize status=start"
 stellar contract invoke \
 # Determine the contract output path based on workspace structure
-CONTRACT_WASM="Crowdfund-stellar-raise-contracts/target/wasm32-unknown-unknown/release/crowdfund.wasm"
+CONTRACT_WASM="target/wasm32-unknown-unknown/release/crowdfund.wasm"
 
 echo "Building WASM..."
-cd Crowdfund-stellar-raise-contracts
 cargo build --target wasm32-unknown-unknown --release
-cd ..
 
 echo "Deploying contract to $NETWORK..."
 CONTRACT_ID=$(soroban contract deploy \
