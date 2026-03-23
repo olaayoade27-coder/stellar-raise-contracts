@@ -30,7 +30,7 @@ mod crowdfund_wasm {
     soroban_sdk::contractimport!(file = "../wasm/crowdfund.wasm");
     soroban_sdk::contractimport!(file = "../../target/wasm32-unknown-unknown/release/crowdfund.wasm");
     soroban_sdk::contractimport!(
-        file = "../../target/wasm32-unknown-unknown/release/crowdfund.wasm"
+        file = "../../contracts/factory/wasm/crowdfund.wasm"
     );
 }
 
