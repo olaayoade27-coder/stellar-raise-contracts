@@ -22,7 +22,12 @@ pub mod contract_state_size;
 mod contract_state_size_test;
 
 pub mod refund_single_token;
-use refund_single_token::refund_single_transfer;
+use refund_single_token::{
+    execute_refund_single, refund_single_transfer, validate_refund_preconditions,
+};
+#[cfg(test)]
+#[path = "refund_single_token.test.rs"]
+mod refund_single_token_test;
 
 pub mod access_control;
 pub mod admin_upgrade_mechanism;
@@ -2185,6 +2190,8 @@ impl CrowdfundContract {
             .publish(("campaign", "refund_single"), (contributor, amount));
 
         Ok(())
+        let amount = validate_refund_preconditions(&env, &contributor)?;
+        execute_refund_single(&env, &contributor, amount)
     }
 
     /// Cancel the campaign and refund all contributors — callable only by
