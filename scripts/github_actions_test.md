@@ -21,7 +21,7 @@ Run locally from the repository root:
 
 ## What was wrong
 
-Three bugs were found and fixed across the CI workflow files:
+Four bugs were found and fixed across the CI workflow files:
 
 ### 1. `actions/checkout@v6` — non-existent action version (typo)
 
@@ -47,8 +47,7 @@ The workflow built the WASM binary twice:
 ```
 
 The second step added ~60–90 s of unnecessary compile time on every CI run
-without producing a different artifact (Cargo's incremental cache means it
-recompiles nothing new, but the step overhead and cache I/O still cost time).
+without producing a different artifact.
 
 **Fix:** Removed the redundant second build step.
 
@@ -59,6 +58,31 @@ job never ran. Added a minimal working workflow using
 `streetsidesoftware/cspell-action@v6` that checks `*.md`, `*.yml`, and
 `*.yaml` files on push and pull-request events.
 
+### 4. `testnet_smoke.yml` — WASM build not scoped to `-p crowdfund`
+
+The smoke test built the entire workspace:
+
+```yaml
+- run: cargo build --target wasm32-unknown-unknown --release
+```
+
+This compiles every crate in the workspace unnecessarily, wasting CI time.
+
+**Fix:** Added `-p crowdfund` to scope the build to the single required crate:
+
+```yaml
+- run: cargo build --target wasm32-unknown-unknown --release -p crowdfund
+```
+
+### 5. `testnet_smoke.yml` — deprecated `soroban-cli` instead of `stellar-cli`
+
+The Soroban CLI was renamed to the Stellar CLI (`stellar-cli`). Installing
+`soroban-cli` installs an outdated, unmaintained package. All `soroban`
+subcommands (`soroban keys`, `soroban contract`) were updated to `stellar`.
+
+**Fix:** Changed `cargo install soroban-cli` → `cargo install stellar-cli` and
+updated all `soroban` command invocations to `stellar`.
+
 ---
 
 ## Files changed
@@ -66,15 +90,15 @@ job never ran. Added a minimal working workflow using
 | File | Change |
 |---|---|
 | `.github/workflows/rust_ci.yml` | `checkout@v6` → `checkout@v4`; removed duplicate WASM build step |
-| `.github/workflows/testnet_smoke.yml` | `checkout@v6` → `checkout@v4` |
+| `.github/workflows/testnet_smoke.yml` | `checkout@v6` → `checkout@v4`; added `-p crowdfund` to build step; `soroban-cli` → `stellar-cli`; all `soroban` commands → `stellar` |
 | `.github/workflows/spellcheck.yml` | Replaced empty file with working spellcheck workflow |
 
 ## Validation scripts
 
 | Script | Purpose |
 |---|---|
-| `scripts/github_actions_test.sh` | Validates workflow files in CI or locally |
-| `scripts/github_actions_test.test.sh` | Tests the validator against pass/fail scenarios |
+| `scripts/github_actions_test.sh` | Validates workflow files in CI or locally (7 checks) |
+| `scripts/github_actions_test.test.sh` | Tests the validator against pass/fail scenarios (8 tests) |
 
 Run locally:
 
@@ -239,3 +263,5 @@ The test suite (`github_actions_test.test.sh`) covers 20 tests across 12 checks:
 - No secrets or credentials are introduced or modified.
 - The `actions/checkout@v4` pin is the current stable, audited release.
 - The spellcheck action runs with default (read-only) permissions.
+- Using `stellar-cli` (the maintained successor) reduces supply-chain risk
+  compared to the deprecated `soroban-cli` package.

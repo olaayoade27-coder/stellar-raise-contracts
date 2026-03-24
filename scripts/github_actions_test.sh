@@ -50,6 +50,10 @@
 #   1. Required workflow files exist and are non-empty.
 #   2. No workflow references a non-existent actions/checkout version (e.g. @v6).
 #   3. No duplicate WASM build steps exist in rust_ci.yml.
+#   4. Smoke test does not call non-existent contract functions.
+#   5. Smoke test initialize call includes required --admin argument.
+#   6. Smoke test WASM build is scoped to -p crowdfund.
+#   7. Smoke test uses stellar-cli, not deprecated soroban-cli.
 #
 # Usage:
 #   bash scripts/github_actions_test.sh
@@ -182,6 +186,10 @@ fi
 # =============================================================================
 if ! grep -qE -- "cargo build.*-p crowdfund" "$WORKFLOWS_DIR/testnet_smoke.yml"; then
   fail "testnet_smoke.yml WASM build step is missing '-p crowdfund'"
+# ── Check 6: smoke test WASM build is scoped to -p crowdfund ──────────────────
+
+if ! grep -qE "cargo build.*-p crowdfund" "$WORKFLOWS_DIR/testnet_smoke.yml"; then
+  fail "testnet_smoke.yml WASM build step is missing '-p crowdfund' (builds entire workspace unnecessarily)"
 else
   pass "testnet_smoke.yml WASM build step is scoped to -p crowdfund"
 fi
@@ -194,6 +202,10 @@ fi
 # =============================================================================
 if grep -qF -- "soroban-cli" "$WORKFLOWS_DIR/testnet_smoke.yml"; then
   fail "testnet_smoke.yml installs deprecated 'soroban-cli' — use 'stellar-cli'"
+# ── Check 7: smoke test uses stellar CLI, not deprecated soroban-cli ──────────
+
+if grep -qF "soroban-cli" "$WORKFLOWS_DIR/testnet_smoke.yml"; then
+  fail "testnet_smoke.yml installs deprecated 'soroban-cli' — use 'stellar-cli' instead"
 else
   pass "testnet_smoke.yml does not reference deprecated soroban-cli"
 fi

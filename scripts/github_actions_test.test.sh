@@ -106,12 +106,9 @@ failed=0
 assert_exit() {
   local desc="$1" expected="$2"
   shift 2
-  local actual
-  actual=$("$@" > /dev/null 2>&1; echo $?) || true
-  # Re-run capturing exit code properly
   set +e
   "$@" > /dev/null 2>&1
-  actual=$?
+  local actual=$?
   set -e
   if [[ "$actual" -eq "$expected" ]]; then
     echo "PASS: $desc"
@@ -669,6 +666,47 @@ jobs:
 EOF
 
 assert_exit "fails when smoke test initialize is missing --admin" 1 bash -c "cd '$tmpdir5' && bash '$OLDPWD/$SCRIPT'"
+
+# ── Test 7: fails when smoke test WASM build is missing -p crowdfund ──────────
+
+tmpdir6=$(mktemp -d)
+trap 'rm -rf "$tmpdir6"' EXIT
+
+mkdir -p "$tmpdir6/.github/workflows"
+echo "name: Rust CI"    > "$tmpdir6/.github/workflows/rust_ci.yml"
+echo "name: Spellcheck" > "$tmpdir6/.github/workflows/spellcheck.yml"
+cat > "$tmpdir6/.github/workflows/testnet_smoke.yml" <<'EOF'
+name: Smoke
+jobs:
+  smoke-test:
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --target wasm32-unknown-unknown --release
+      - run: stellar contract invoke --id $ID -- initialize --admin $A --creator $A --token T --goal 1000 --deadline 9999 --min_contribution 1
+EOF
+
+assert_exit "fails when smoke test WASM build is missing -p crowdfund" 1 bash -c "cd '$tmpdir6' && bash '$OLDPWD/$SCRIPT'"
+
+# ── Test 8: fails when smoke test uses deprecated soroban-cli ─────────────────
+
+tmpdir7=$(mktemp -d)
+trap 'rm -rf "$tmpdir7"' EXIT
+
+mkdir -p "$tmpdir7/.github/workflows"
+echo "name: Rust CI"    > "$tmpdir7/.github/workflows/rust_ci.yml"
+echo "name: Spellcheck" > "$tmpdir7/.github/workflows/spellcheck.yml"
+cat > "$tmpdir7/.github/workflows/testnet_smoke.yml" <<'EOF'
+name: Smoke
+jobs:
+  smoke-test:
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo install soroban-cli
+      - run: cargo build --target wasm32-unknown-unknown --release -p crowdfund
+      - run: stellar contract invoke --id $ID -- initialize --admin $A --creator $A --token T --goal 1000 --deadline 9999 --min_contribution 1
+EOF
+
+assert_exit "fails when smoke test uses deprecated soroban-cli" 1 bash -c "cd '$tmpdir7' && bash '$OLDPWD/$SCRIPT'"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
