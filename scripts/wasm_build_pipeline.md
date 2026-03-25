@@ -20,6 +20,8 @@ Utility for managing WASM build artifact caching for the Stellar Raise deploymen
 - Manual bulk eviction via `evictExpired()`
 - Cross-network isolation (keys scoped by `<network>.<contractId>`)
 - Zero external dependencies
+ - Bounded memory: configurable max entries with oldest-entry eviction to
+   avoid unbounded memory growth in long-running processes (CI, dev servers)
 
 ## Security
 
