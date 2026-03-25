@@ -11,6 +11,16 @@ import {
   cssVar,
   cssCalc,
   ALLOWED_CSS_VARIABLES,
+  CssVariablesMap,
+  useCssVariable,
+  THEME,
+  COLORS,
+  SPACING,
+  TYPOGRAPHY,
+  LAYOUT,
+  Z_INDEX,
+  EFFECTS,
+  SAFE_AREA,
 } from './css_variables_usage';
 
 describe('CssVariableValidator', () => {
@@ -315,6 +325,105 @@ describe('Security Edge Cases', () => {
   });
 });
 
+describe('CssVariablesUsage setMultiple', () => {
+  let container: HTMLElement;
+  let cssVars: CssVariablesUsage;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    cssVars = new CssVariablesUsage(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  describe('setMultiple', () => {
+    it('should set multiple CSS variables at once', () => {
+      cssVars.setMultiple({
+        '--color-primary-blue': '#ff0000',
+        '--space-4': '2rem',
+      });
+      expect(container.style.getPropertyValue('--color-primary-blue')).toBe('#ff0000');
+      expect(container.style.getPropertyValue('--space-4')).toBe('2rem');
+    });
+
+    it('should skip undefined values in setMultiple', () => {
+      container.style.setProperty('--color-primary-blue', '#0066FF');
+      cssVars.setMultiple({
+        '--color-primary-blue': '#ff0000',
+        '--space-4': undefined as unknown as string,
+      });
+      expect(container.style.getPropertyValue('--color-primary-blue')).toBe('#ff0000');
+      expect(container.style.getPropertyValue('--space-4')).toBe('');
+    });
+
+    it('should throw error for invalid variable name in setMultiple', () => {
+      // Using type assertion to test runtime validation of invalid keys
+      const invalidMap = { '--invalid-var': 'value' } as CssVariablesMap;
+      expect(() => {
+        cssVars.setMultiple(invalidMap);
+      }).toThrow(CssVariablesError);
+    });
+
+    it('should throw error for dangerous value in setMultiple', () => {
+      expect(() => {
+        cssVars.setMultiple({
+          '--color-primary-blue': 'url(https://evil.com)',
+        });
+      }).toThrow(CssVariablesError);
+    });
+
+    it('should handle empty object in setMultiple', () => {
+      expect(() => {
+        cssVars.setMultiple({});
+      }).not.toThrow();
+    });
+  });
+});
+
+describe('useCssVariable hook', () => {
+  it('should be defined as a function', () => {
+    expect(typeof useCssVariable).toBe('function');
+  });
+
+  it('should be callable with valid variable name', () => {
+    const container = document.createElement('div');
+    container.style.setProperty('--color-primary-blue', '#0066FF');
+    document.body.appendChild(container);
+
+    const cssVars = new CssVariablesUsage(container);
+    // Actually invoke the hook returning from document.documentElement
+    const result = useCssVariable('--color-primary-blue');
+
+    document.body.removeChild(container);
+  });
+});
+
+describe('useDocsCssVariable hook', () => {
+  it('should be defined as a function', () => {
+    expect(typeof useDocsCssVariable).toBe('function');
+  });
+
+  it('should be callable with valid documentation variable name', () => {
+    const container = document.createElement('div');
+    container.style.setProperty('--color-docs-bg', '#ffffff');
+    document.body.appendChild(container);
+
+    const cssVars = new CssVariablesUsage(container);
+    const result = cssVars.get('--color-docs-bg');
+    expect(result).toBe('#ffffff');
+
+    // Due to the hook running properly only in React context for testing we test 
+    // it simply runs without failure for the fallback as JSDOM window is mocked natively
+    const fallbackResult = useDocsCssVariable('--color-docs-bg', '#f0f0f0');
+    expect(typeof fallbackResult).toBe('string');
+
+    document.body.removeChild(container);
+  });
+});
+
 describe('ALLOWED_CSS_VARIABLES constant', () => {
   it('should have all required CSS variables defined', () => {
     // Colors
@@ -338,11 +447,56 @@ describe('ALLOWED_CSS_VARIABLES constant', () => {
     // Safe area
     expect(ALLOWED_CSS_VARIABLES).toContain('--safe-area-inset-top');
     expect(ALLOWED_CSS_VARIABLES).toContain('--safe-area-inset-bottom');
+
+    // Documentation
+    expect(ALLOWED_CSS_VARIABLES).toContain('--color-docs-bg');
+    expect(ALLOWED_CSS_VARIABLES).toContain('--color-docs-text');
+    expect(ALLOWED_CSS_VARIABLES).toContain('--font-docs-code');
   });
 
   it('should not contain invalid variable names', () => {
     ALLOWED_CSS_VARIABLES.forEach((variable) => {
       expect(variable).toMatch(/^--[a-z][a-z0-9-]*$/);
     });
+  });
+});
+
+describe('THEME object', () => {
+  it('should have all categories defined', () => {
+    expect(THEME.colors).toBeDefined();
+    expect(THEME.spacing).toBeDefined();
+    expect(THEME.typography).toBeDefined();
+    expect(THEME.layout).toBeDefined();
+    expect(THEME.zIndex).toBeDefined();
+    expect(THEME.effects).toBeDefined();
+    expect(THEME.safeArea).toBeDefined();
+  });
+
+  it('should map COLORS to THEME.colors', () => {
+    expect(COLORS).toBe(THEME.colors);
+  });
+
+  it('should map SPACING to THEME.spacing', () => {
+    expect(SPACING).toBe(THEME.spacing);
+  });
+
+  it('should have correct variable names in THEME', () => {
+    expect(THEME.colors.primary).toBe('--color-primary-blue');
+    expect(THEME.spacing.space4).toBe('--space-4');
+    expect(THEME.typography.sizeBase).toBe('--font-size-base');
+    expect(THEME.layout.breakpointMobile).toBe('--breakpoint-mobile');
+    expect(THEME.zIndex.modal).toBe('--z-modal');
+    expect(THEME.effects.radiusFull).toBe('--radius-full');
+    expect(THEME.safeArea.top).toBe('--safe-area-inset-top');
+  });
+
+  it('should include all THEME variables in ALLOWED_CSS_VARIABLES', () => {
+    Object.values(THEME.colors).forEach(v => expect(ALLOWED_CSS_VARIABLES).toContain(v));
+    Object.values(THEME.spacing).forEach(v => expect(ALLOWED_CSS_VARIABLES).toContain(v));
+    Object.values(THEME.typography).forEach(v => expect(ALLOWED_CSS_VARIABLES).toContain(v));
+    Object.values(THEME.layout).forEach(v => expect(ALLOWED_CSS_VARIABLES).toContain(v));
+    Object.values(THEME.zIndex).forEach(v => expect(ALLOWED_CSS_VARIABLES).toContain(v));
+    Object.values(THEME.effects).forEach(v => expect(ALLOWED_CSS_VARIABLES).toContain(v));
+    Object.values(THEME.safeArea).forEach(v => expect(ALLOWED_CSS_VARIABLES).toContain(v));
   });
 });

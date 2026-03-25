@@ -1,6 +1,7 @@
 {
   "preset": "ts-jest",
   "testEnvironment": "jsdom",
+  "setupFilesAfterEnv": ["./jest.setup.js"],
   "moduleFileExtensions": ["ts", "tsx", "js", "jsx"],
   "transform": {
     "^.+\\.(ts|tsx|js|jsx)$": ["ts-jest", {
@@ -8,15 +9,20 @@
         "jsx": "react-jsx",
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
-        "module": "commonjs"
+        "allowJs": true,
+        "module": "commonjs",
+        "types": ["jest", "node", "@testing-library/jest-dom"]
       }
-    }]
+    ]
   },
-  "testMatch": ["**/*.test.(ts|tsx|js|jsx)"],
+  "testMatch": [
+    "**/*.test.(ts|tsx|js|jsx)"
+  ],
   "transformIgnorePatterns": [
     "node_modules/(?!(@?react|react-dom)/)"
   ],
   "moduleNameMapper": {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy"
-  }
+  },
+  "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"]
 }

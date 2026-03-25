@@ -258,6 +258,26 @@ pub struct RoadmapItem {
 | 3 | `CampaignStillActive` | Action requires deadline to have passed |
 | 4 | `GoalNotReached` | Withdraw/collect attempted when goal not met |
 | 5 | `GoalReached` | Refund attempted when goal was met |
+
+## Testing and Security Notes
+
+- Test coverage is designed for 95%+ lines in the crowdfund module.
+- Critical code paths covered:
+  - `initialize`: repeated init, platform fee bounds, bonus goal guard.
+  - `contribute`: minimum amount guard, deadline guard, aggregation, overflow protection.
+  - `pledge` / `collect_pledges`: state transition and transfer effect.
+  - `withdraw`: deadline, goal check, platform fee, NFT mint flow.
+  - `refund`, `cancel`, `add_roadmap_item`, `add_stretch_goal`, `current_milestone`, `get_stats`, `bonus_goal`.
+  - `upgrade`: admin-only authorization.
+
+### Security assumptions
+
+1. `creator.require_auth()` and `admin.require_auth()` provide access control in relevant calls.
+2. `platform fee <= 10_000` ensures no more than 100% fees are taken.
+3. `bonus_goal` strict comparison (`> goal`) prevents invalid secondary goal loops.
+4. `contribute` and `collect_pledges` use `checked_add`/`checked_mul` to avoid overflow in numeric operations.
+5. `status` checks in state-transition functions prevent replay / double accounting.
+
 | 6 | `Overflow` | Integer overflow in contribution accounting |
 
 ---
@@ -292,7 +312,7 @@ pub struct RoadmapItem {
 
 ## Test Coverage
 
-Tests live in `contracts/crowdfund/src/test.rs` (functional) and `contracts/crowdfund/src/auth_tests.rs` (authorization).
+Tests live in `contracts/crowdfund/src/test.rs` (functional), `contracts/crowdfund/src/auth_tests.rs` (authorization), and `contracts/crowdfund/src/stellar_token_minter_test.rs` (minter-focused edge cases).
 
 | Area | Tests |
 |---|---|
@@ -305,10 +325,11 @@ Tests live in `contracts/crowdfund/src/test.rs` (functional) and `contracts/crow
 | pledge | records amount, after deadline error |
 | collect_pledges | before deadline error, goal not met error |
 | stretch goals | current milestone, no goals |
-| bonus goal | reached after contribution, progress bps |
-| get_stats | accurate aggregates |
+| bonus goal | reached after contribution, progress bps capped at 10,000 |
+| get_stats | accurate aggregates, empty campaign |
 | roadmap | add and retrieve items |
 | auth | initialize, withdraw, contribute auth guards |
+| upgrade | admin-only auth guard (non-admin panics) |
 
 Run with:
 
