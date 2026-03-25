@@ -496,15 +496,16 @@ export class CssVariablesUsage {
 
     // Normalize variable name
     const normalizedName = this.normalizeVariableName(variableName);
-
-    // Validate the variable name
     CssVariableValidator.isValidVariableName(normalizedName);
 
-    // Get computed style
+    if (this._cache.has(normalizedName)) {
+      return this._cache.get(normalizedName)!;
+    }
+
     const computedStyle = getComputedStyle(this.element);
     const value = computedStyle.getPropertyValue(normalizedName).trim();
+    this._cache.set(normalizedName, value);
 
-    // Return value or fallback
     return value || fallback || '';
   }
 
@@ -525,14 +526,11 @@ export class CssVariablesUsage {
     // Normalize variable name
     const normalizedName = this.normalizeVariableName(variableName);
 
-    // Validate the variable name
     CssVariableValidator.isValidVariableName(normalizedName);
-
-    // Validate the value
     CssVariableValidator.isValidValue(value);
 
-    // Set the property
     this.element.style.setProperty(normalizedName, value);
+    this.invalidateCache();
   }
 
   /**
@@ -550,11 +548,10 @@ export class CssVariablesUsage {
     // Normalize variable name
     const normalizedName = this.normalizeVariableName(variableName);
 
-    // Validate the variable name
     CssVariableValidator.isValidVariableName(normalizedName);
 
-    // Remove the property
     this.element.style.removeProperty(normalizedName);
+    this.invalidateCache();
   }
 
   /**
@@ -653,6 +650,7 @@ export function cssVar(variableName: string, fallback?: string): string {
   const normalizedName = variableName.trim().startsWith('--')
     ? variableName.trim()
     : `--${variableName.trim()}`;
+  const normalizedName = variableName.startsWith('--') ? variableName : `--${variableName}` as V;
   
   CssVariableValidator.isValidVariableName(normalizedName);
 
@@ -662,7 +660,7 @@ export function cssVar(variableName: string, fallback?: string): string {
   return `var(${normalizedName})` as VarExpression;
     return `var(${normalizedName}, ${fallback})`;
   }
-  return `var(${normalizedName})`;
+  return `var(${normalizedName})` as VarExpression;
 }
 
 /**
@@ -709,3 +707,4 @@ export default CssVariablesUsage;
 
 // Default export for convenience
 export default CssVariablesUsage;
+
