@@ -16,7 +16,7 @@
 #   0 — all checks passed
 #   1 — one or more checks failed
 
-set -e
+set +e   # Do NOT exit on first failure — accumulate all results below.
 
 PASS=0
 FAIL=1
@@ -61,6 +61,11 @@ else
 fi
 
 # ── 3. Dry-run contract build ────────────────────────────────────────────────
+#
+# @dev  --dry-run resolves dependencies and checks the build graph without
+#       producing a WASM binary.  It is fast and safe to run offline once
+#       the registry index is cached.  If --dry-run is unsupported by the
+#       installed cargo version, fall back to a metadata-only check.
 
 printf 'Dry-run build of crowdfund contract ... '
 if cargo build --release --target wasm32-unknown-unknown -p crowdfund --dry-run > /dev/null 2>&1; then

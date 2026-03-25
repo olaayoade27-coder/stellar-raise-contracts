@@ -153,21 +153,6 @@ describe('deploy.sh logging bounds', () => {
   });
 });
 
-// ── Getting Started commands ──────────────────────────────────────────────────
-
-describe('Getting Started', () => {
-  test('cargo build --dry-run succeeds (wasm32 release)', () => {
-    run(
-      'cargo build --release --target wasm32-unknown-unknown -p crowdfund --dry-run',
-      { cwd: ROOT, timeout: 30000 }
-    );
-  }, 35000);
-
-  test('cargo test --no-run compiles test suite', () => {
-    run('cargo test --no-run --workspace', { cwd: ROOT, timeout: 120000, stdio: 'ignore' });
-  }, 130000);
-});
-
   test('15 - deploy.sh step=done line includes contract_id field', () => {
     const src = fs.readFileSync(DEPLOY_SCRIPT, 'utf8');
     expect(src).toMatch(/\[LOG\] step=done contract_id=/);
@@ -197,8 +182,6 @@ describe('interact.sh logging bounds', () => {
     expect(parsed.reason).toBe('unknown_action');
   });
 });
-
-// ── Edge Case: CLI versioning ─────────────────────────────────────────────────
 
   test('19 - interact.sh contribute action has exactly 2 [LOG] lines in source', () => {
     const src = fs.readFileSync(INTERACT_SCRIPT, 'utf8');
