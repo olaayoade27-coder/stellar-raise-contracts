@@ -2421,6 +2421,15 @@ impl CrowdfundContract {
     /// * Auth error — if the caller is not the stored admin.
     /// Delegates to [`admin_upgrade_mechanism::upgrade`]. See that module for
     /// full NatSpec documentation and security assumptions.
+    /// This function allows the designated admin to upgrade the contract's WASM code
+    /// without changing the contract's address or storage. The new WASM hash must be
+    /// provided and the caller must be authorized as the admin.
+    ///
+    /// # Arguments
+    /// * `new_wasm_hash` – The SHA-256 hash of the new WASM binary to deploy.
+    ///
+    /// # Panics
+    /// * If the caller is not the admin.
     pub fn upgrade(env: Env, new_wasm_hash: soroban_sdk::BytesN<32>) {
         // Gas-efficiency edge case: reject zero hash before any storage read.
         if !admin_upgrade_mechanism::validate_wasm_hash(&new_wasm_hash) {
@@ -2437,6 +2446,10 @@ impl CrowdfundContract {
             new_wasm_hash
         );
         admin_upgrade_mechanism::upgrade(&env, new_wasm_hash);
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
     /// Update campaign metadata — only callable by the creator while the
