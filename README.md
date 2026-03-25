@@ -272,12 +272,14 @@ We provide automated scripts to simplify deploying and interacting with the crow
 
    ```bash
    curl -Ls https://soroban.stellar.org/install-soroban.sh | sh
+   source ~/.bashrc   # or ~/.zshrc
+   stellar --version  # should print stellar-cli x.y.z
    ```
 
-2. **Configure your Soroban identity:**
+2. **Configure your Stellar identity:**
 
    ```bash
-   soroban keys generate --global <alice>
+   stellar keys generate --global alice
    ```
 
 3. **Add the testnet network:**
@@ -361,8 +363,8 @@ If you prefer manual deployment:
 # Build the optimized WASM
 cargo build --release --target wasm32-unknown-unknown
 
-# Deploy using Soroban CLI
-soroban contract deploy \
+# Deploy using Stellar CLI
+stellar contract deploy \
   --wasm target/wasm32-unknown-unknown/release/crowdfund.wasm \
   --network testnet \
   --source <YOUR_SECRET_KEY>

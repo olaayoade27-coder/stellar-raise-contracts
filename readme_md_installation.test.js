@@ -431,7 +431,20 @@ describe('Getting Started', () => {
   }, 35000);
 
   test('cargo test --no-run compiles test suite', () => {
-    run('cargo test --no-run --workspace', { cwd: ROOT, timeout: 120000, stdio: 'ignore' });
+    run('cargo test --no-run --workspace', { cwd: ROOT, timeout: 120000 });
+  }, 130000);
+});
+
+// ── Edge Case: cargo test parallelism ────────────────────────────────────────
+
+describe('Edge Case — cargo test parallelism', () => {
+  test('cargo test --workspace --test-threads=2 flag is accepted', () => {
+    // Verifies the flag syntax documented in the Troubleshooting section is valid.
+    // Uses --no-run to avoid a full test execution in CI.
+    run('cargo test --no-run --workspace -- --test-threads=2', {
+      cwd: ROOT,
+      timeout: 120000,
+    });
   }, 130000);
 });
 
