@@ -220,6 +220,7 @@ export class WasmCacheValidator {
    */
   static validateValue(value: string): void {
     if (Buffer.byteLength(value, 'utf8') > MAX_CACHE_VALUE_BYTES) {
+    if (new TextEncoder().encode(value).length > MAX_CACHE_VALUE_BYTES) {
       throw new WasmCacheError(
         `Cache value exceeds the maximum allowed size of ${MAX_CACHE_VALUE_BYTES} bytes.`
       );

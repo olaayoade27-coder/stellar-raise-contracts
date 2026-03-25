@@ -151,6 +151,7 @@ npx jest scripts/wasm_build_pipeline.test.tsx --coverage
 ```
 
 Expected coverage: 100% statements, branches, functions, and lines (132 tests).
+Expected coverage: ≥ 95% statements, branches, functions, and lines.
 
 ## Notes
 
