@@ -2218,9 +2218,9 @@ fn test_withdraw_skips_nft_mint_when_contract_not_set() {
     assert_eq!(client.nft_contract(), None);
 }
 
-// ── refund ───────────────────────────────────────────────────────────────────
+// ── refund_single (pull-based) ────────────────────────────────────────────────
 
-/// Refund returns tokens to all contributors when goal is not met.
+/// refund_single returns tokens to the contributor when goal is not met.
 #[test]
 fn test_refund_returns_tokens() {
     let (env, client, creator, token_address, admin) = setup_env();
@@ -2410,6 +2410,7 @@ fn test_cancel_with_no_contributions() {
     client.initialize(&creator, &token_address, &goal, &deadline, &min_contribution, &None);
 
     client.cancel();
+    client.refund_single(&alice);
 
     let token_client = token::Client::new(&env, &token_address);
     assert_eq!(token_client.balance(&alice), 500_000);
@@ -2474,8 +2475,9 @@ fn test_cancel_with_contributions() {
 }
 /// Second refund call must panic — status is already Refunded.
 /// Second refund call must panic — status is already Expired (not Active).
+/// Second refund_single call must panic — nothing left to refund.
 #[test]
-#[should_panic(expected = "campaign must be in Expired state to refund")]
+#[should_panic(expected = "NothingToRefund")]
 fn test_double_refund_panics() {
     let (env, client, creator, token_address, admin) = setup_env();
     let deadline = env.ledger().timestamp() + 3600;
@@ -2487,11 +2489,11 @@ fn test_double_refund_panics() {
 
     env.ledger().set_timestamp(deadline + 1);
     client.finalize();
-    client.refund();
-    client.refund(); // panics — already Expired, not Active
+    client.refund_single(&alice);
+    client.refund_single(&alice); // panics — nothing left to refund
 }
 
-/// Refund when goal is reached: finalize transitions to Succeeded, refund panics.
+/// refund_single when goal is reached: finalize transitions to Succeeded, refund panics.
 #[test]
 #[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_refund_when_goal_reached_returns_error() {
@@ -2506,7 +2508,7 @@ fn test_refund_when_goal_reached_returns_error() {
 
     env.ledger().set_timestamp(deadline + 1);
     client.finalize(); // transitions to Succeeded
-    client.refund(); // panics — not Expired
+    client.refund_single(&contributor); // panics — not Expired
 }
 }
 
