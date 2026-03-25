@@ -236,6 +236,7 @@ fn test_refund_single_no_contribution_returns_nothing_to_refund() {
 #[should_panic(expected = "campaign must be in Expired state to refund")]
 /// Calling `refund_single` before the deadline returns `CampaignStillActive`.
 #[test]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_refund_single_before_deadline_returns_campaign_still_active() {
     let (env, client, creator, token, _admin) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -260,8 +261,9 @@ fn test_refund_single_before_deadline_returns_campaign_still_active() {
     );
 }
 
-/// Calling exactly at the deadline (not past it) is still rejected.
+/// Calling exactly at the deadline (not past it) — campaign still Active, panics.
 #[test]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_refund_single_at_deadline_boundary_returns_campaign_still_active() {
     let (env, client, creator, token, _admin) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -288,6 +290,7 @@ fn test_refund_single_at_deadline_boundary_returns_campaign_still_active() {
 #[should_panic(expected = "campaign must be in Expired state to refund")]
 /// When the goal is met, `refund_single` returns `GoalReached`.
 #[test]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_refund_single_goal_reached_returns_goal_reached() {
     let (env, client, creator, token, _admin) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -332,7 +335,7 @@ fn test_refund_single_goal_exactly_met_returns_goal_reached() {
 #[should_panic(expected = "campaign must be in Expired state to refund")]
 /// `refund_single` panics when the campaign is Successful.
 #[test]
-#[should_panic(expected = "campaign is not active")]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_refund_single_on_successful_campaign_panics() {
     let (env, client, creator, token, _admin) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -415,6 +418,7 @@ fn test_refund_single_requires_contributor_auth() {
     );
     client.contribute(&alice, &500_000);
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize(); // Active → Expired
 
     // Now attempt refund_single with alice's auth properly mocked.
     client.mock_auths(&[soroban_sdk::testutils::MockAuth {

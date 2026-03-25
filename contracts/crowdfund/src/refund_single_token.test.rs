@@ -437,8 +437,9 @@ fn test_validate_returns_amount_on_success() {
     assert_eq!(result, Ok(50_000));
 }
 
-/// @test Returns CampaignStillActive when deadline has not passed.
+/// @test Panics when campaign is still Active (deadline not passed, not finalized).
 #[test]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_validate_before_deadline_returns_campaign_still_active() {
     let (env, client, creator, token) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -448,15 +449,15 @@ fn test_validate_before_deadline_returns_campaign_still_active() {
     mint(&env, &token, &alice, 50_000);
     client.contribute(&alice, &50_000);
 
-    // Do NOT advance past deadline
-    let result = env.as_contract(&client.address, || {
-        validate_refund_preconditions(&env, &alice)
+    // Do NOT advance past deadline — campaign stays Active
+    env.as_contract(&client.address, || {
+        validate_refund_preconditions(&env, &alice).unwrap();
     });
-    assert_eq!(result, Err(ContractError::CampaignStillActive));
 }
 
-/// @test Returns CampaignStillActive when called exactly at the deadline.
+/// @test Panics when campaign is Active at the deadline boundary.
 #[test]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_validate_at_deadline_boundary_returns_campaign_still_active() {
     let (env, client, creator, token) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -466,15 +467,15 @@ fn test_validate_at_deadline_boundary_returns_campaign_still_active() {
     mint(&env, &token, &alice, 50_000);
     client.contribute(&alice, &50_000);
 
-    env.ledger().set_timestamp(deadline); // exactly at, not past
-    let result = env.as_contract(&client.address, || {
-        validate_refund_preconditions(&env, &alice)
+    env.ledger().set_timestamp(deadline); // exactly at, not past — finalize would fail
+    env.as_contract(&client.address, || {
+        validate_refund_preconditions(&env, &alice).unwrap();
     });
-    assert_eq!(result, Err(ContractError::CampaignStillActive));
 }
 
-/// @test Returns GoalReached when total_raised >= goal.
+/// @test Panics when campaign is Succeeded (goal was met).
 #[test]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_validate_goal_reached_returns_goal_reached() {
     let (env, client, creator, token) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -486,14 +487,16 @@ fn test_validate_goal_reached_returns_goal_reached() {
     client.contribute(&alice, &goal);
 
     env.ledger().set_timestamp(deadline + 1);
-    let result = env.as_contract(&client.address, || {
-        validate_refund_preconditions(&env, &alice)
+    client.finalize(); // Active → Succeeded
+
+    env.as_contract(&client.address, || {
+        validate_refund_preconditions(&env, &alice).unwrap();
     });
-    assert_eq!(result, Err(ContractError::GoalReached));
 }
 
-/// @test Returns GoalReached when total_raised exceeds goal.
+/// @test Panics when campaign is Succeeded (goal exceeded).
 #[test]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_validate_goal_exceeded_returns_goal_reached() {
     let (env, client, creator, token) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -505,10 +508,11 @@ fn test_validate_goal_exceeded_returns_goal_reached() {
     client.contribute(&alice, &(goal + 50_000));
 
     env.ledger().set_timestamp(deadline + 1);
-    let result = env.as_contract(&client.address, || {
-        validate_refund_preconditions(&env, &alice)
+    client.finalize(); // Active → Succeeded
+
+    env.as_contract(&client.address, || {
+        validate_refund_preconditions(&env, &alice).unwrap();
     });
-    assert_eq!(result, Err(ContractError::GoalReached));
 }
 
 /// @test Returns NothingToRefund for an address with no contribution.
@@ -520,6 +524,7 @@ fn test_validate_no_contribution_returns_nothing_to_refund() {
 
     let stranger = Address::generate(&env);
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize(); // Active → Expired
 
     let result = env.as_contract(&client.address, || {
         validate_refund_preconditions(&env, &stranger)
@@ -539,6 +544,7 @@ fn test_validate_after_refund_returns_nothing_to_refund() {
     client.contribute(&alice, &10_000);
 
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize(); // Active → Expired
 
     // First refund via the contract method (zeroes storage)
     client.refund_single(&alice);
@@ -549,9 +555,9 @@ fn test_validate_after_refund_returns_nothing_to_refund() {
     assert_eq!(result, Err(ContractError::NothingToRefund));
 }
 
-/// @test Panics with "campaign is not active" on a Successful campaign.
+/// @test Panics with "campaign must be in Expired state to refund" on a Succeeded campaign.
 #[test]
-#[should_panic(expected = "campaign is not active")]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_validate_panics_on_successful_campaign() {
     let (env, client, creator, token) = setup();
     let deadline = env.ledger().timestamp() + 3_600;
@@ -563,16 +569,17 @@ fn test_validate_panics_on_successful_campaign() {
     client.contribute(&alice, &goal);
 
     env.ledger().set_timestamp(deadline + 1);
-    client.withdraw(); // → Successful
+    client.finalize(); // → Succeeded
+    client.withdraw();
 
     env.as_contract(&client.address, || {
         validate_refund_preconditions(&env, &alice).unwrap();
     });
 }
 
-/// @test Panics with "campaign is not active" on a Cancelled campaign.
+/// @test Panics with "campaign must be in Expired state to refund" on a Cancelled campaign.
 #[test]
-#[should_panic(expected = "campaign is not active")]
+#[should_panic(expected = "campaign must be in Expired state to refund")]
 fn test_validate_panics_on_cancelled_campaign() {
     let (env, client, creator, token) = setup();
     let deadline = env.ledger().timestamp() + 3_600;

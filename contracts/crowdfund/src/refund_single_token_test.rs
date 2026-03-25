@@ -345,7 +345,7 @@ mod refund_single_tests {
         client.refund();
         client.refund(); // must panic — already Expired, not Active
         client.refund();
-        client.refund(); // must panic — status is Refunded
+        client.refund(); // must panic — already Expired, not Active
     }
 
     /// @test refund() is blocked while the campaign is still active (before deadline).
@@ -385,7 +385,7 @@ mod refund_single_tests {
         assert!(result.is_err()); // panics — not Expired
 
         let result = client.try_refund();
-        assert!(result.is_err()); // GoalReached error
+        assert!(result.is_err()); // panics — not Expired
     }
 
     // ── get_contribution helper ───────────────────────────────────────────────
