@@ -112,6 +112,7 @@ mod soroban_sdk_minor_test;
 #[cfg(test)]
 #[path = "stellar_token_minter_test.rs"]
 mod stellar_token_minter_test;
+mod soroban_sdk_minor_test;
 
 mod test;
 #[cfg(test)]
