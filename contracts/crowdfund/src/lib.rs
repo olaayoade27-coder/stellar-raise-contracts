@@ -91,6 +91,7 @@ pub mod soroban_sdk_minor;
 mod auth_tests;
 pub mod campaign_goal_minimum;
 #[cfg(test)]
+#[path = "campaign_goal_minimum.test.rs"]
 mod campaign_goal_minimum_test;
 pub mod contract_state_size;
 #[cfg(test)]
