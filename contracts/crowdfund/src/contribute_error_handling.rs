@@ -44,11 +44,7 @@
 //! @title   ContributeErrorHandling — Centralized error codes and helpers for
 //!          the `contribute()` and `pledge()` entry points.
 //!
-//! @notice  All error conditions that can arise during a contribution are
-//!          represented as typed `ContractError` variants.  This module
-//!          re-exports their numeric codes and provides off-chain helpers so
-//!          scripts can map a raw error code to a human-readable description
-//!          without embedding magic numbers.
+//! # Error taxonomy for `contribute()`
 //!
 //! | Code | Variant              | Trigger                                          |
 //! |------|----------------------|--------------------------------------------------|

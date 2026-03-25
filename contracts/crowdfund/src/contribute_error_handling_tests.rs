@@ -92,6 +92,8 @@ fn setup() -> (Env, CrowdfundContractClient<'static>, Address, Address) {
     let contributor = Address::generate(&env);
     sac.mint(&contributor, &i128::MAX);
 
+    asset_client.mint(&contributor, &i128::MAX);
+
     let now = env.ledger().timestamp();
     client.initialize(
         &Address::generate(&env),
@@ -112,7 +114,7 @@ fn setup() -> (Env, CrowdfundContractClient<'static>, Address, Address) {
     (env, client, contributor)
 }
 
-// ── happy path ────────────────────────────────────────────────────────────────
+// ── happy path ───────────────────────────────────────────────────────────────
 
 #[test]
 fn contribute_happy_path() {
@@ -406,7 +408,6 @@ fn contribute_after_deadline_returns_campaign_ended() {
     assert_eq!(result.unwrap_err().unwrap(), ContractError::CampaignEnded);
 }
 
-/// Test: contribution at exactly the deadline timestamp is accepted (strict >).
 #[test]
 fn contribute_exactly_at_deadline_is_accepted() {
     let (env, client, contributor, _) = setup();
@@ -419,7 +420,6 @@ fn contribute_exactly_at_deadline_is_accepted() {
 // ── BelowMinimum (typed — replaces old panic) ─────────────────────────────────
 // ── Overflow (code 6) — constant correctness ──────────────────────────────────
 
-/// Test: Overflow error code constant matches ContractError repr.
 #[test]
 fn contribute_below_minimum_returns_amount_too_low() {
     let (env, client, contributor, _) = setup();
@@ -653,6 +653,7 @@ fn amount_too_low_error_code_matches_contract_error_repr() {
 }
 
 // ── describe_error helpers ────────────────────────────────────────────────────
+// ── error_codes helpers ───────────────────────────────────────────────────────
 
 #[test]
 fn describe_error_campaign_ended() {
@@ -718,10 +719,8 @@ fn describe_error_campaign_not_active() {
 #[test]
 fn describe_error_unknown() {
     assert_eq!(
-        contribute_error_handling::describe_error(
-            contribute_error_handling::error_codes::AMOUNT_TOO_LOW
-        ),
-        "Contribution amount is below the campaign minimum"
+        contribute_error_handling::describe_error(99),
+        "Unknown error"
     );
 }
 

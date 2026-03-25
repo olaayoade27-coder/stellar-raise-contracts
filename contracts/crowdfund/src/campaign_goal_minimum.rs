@@ -348,6 +348,7 @@ pub fn validate_goal_amount(
 
 /// Validates that `goal_amount` meets the minimum threshold, returning a typed
 /// [`crate::ContractError::GoalTooLow`] on failure.
+/// Validates that `min_contribution` meets the minimum floor.
 ///
 /// @notice  On-chain enforcement entry point. Call inside `initialize()` before
 ///          any state is written so a rejected goal leaves no partial storage.
