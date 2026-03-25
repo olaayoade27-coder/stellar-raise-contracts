@@ -554,6 +554,8 @@ pub struct CampaignInfo {
     InvalidBonusGoal = 12,
     /// Returned by `initialize` when the token address is not a valid SEP-41 contract.
     InvalidToken = 11,
+    /// Returned by `contribute` when `amount` is negative.
+    NegativeAmount = 11,
 }
 
 /// Interface for an external NFT contract used to mint contributor rewards.
@@ -1148,6 +1150,9 @@ impl CrowdfundContract {
     /// * [`ContractError::Overflow`]      – contribution would overflow `i128`.
     pub fn contribute(env: Env, contributor: Address, amount: i128) -> Result<(), ContractError> {
         contributor.require_auth();
+        if amount < 0 {
+            return Err(ContractError::NegativeAmount);
+        }
 
         if amount == 0 {
             return Err(ContractError::ZeroAmount);
