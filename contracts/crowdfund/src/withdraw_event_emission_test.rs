@@ -158,8 +158,6 @@ fn setup_with_nft(
         &None,
         &None,
     );
-
-    let nft_id = env.register(MockNft, ());
     client.set_nft_contract(&creator, &nft_id);
 
     for _ in 0..contributor_count {
@@ -863,6 +861,7 @@ fn test_withdraw_emits_single_batch_event() {
 /// No `nft_batch_minted` event when NFT contract is not configured.
 #[test]
 fn test_withdraw_no_batch_event_without_nft_contract() {
+fn setup_no_nft(contribution: i128) -> (Env, CrowdfundContractClient<'static>, Address, Address) {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -916,8 +915,14 @@ fn count_events(env: &Env, t1: &str, t2: &str) -> usize {
         .iter()
         .filter(|(_, topics, _)| {
             topics.len() >= 2
-                && topics.get(0).map(|v| v == soroban_sdk::Symbol::new(env, t1).into()).unwrap_or(false)
-                && topics.get(1).map(|v| v == soroban_sdk::Symbol::new(env, t2).into()).unwrap_or(false)
+                && topics
+                    .get(0)
+                    .map(|v| v == soroban_sdk::Symbol::new(env, t1).into())
+                    .unwrap_or(false)
+                && topics
+                    .get(1)
+                    .map(|v| v == soroban_sdk::Symbol::new(env, t2).into())
+                    .unwrap_or(false)
         })
         .count()
 }
@@ -932,8 +937,14 @@ fn event_data(env: &Env, t1: &str, t2: &str) -> Option<Val> {
         .iter()
         .find(|(_, topics, _)| {
             topics.len() >= 2
-                && topics.get(0).map(|v| v == soroban_sdk::Symbol::new(env, t1).into()).unwrap_or(false)
-                && topics.get(1).map(|v| v == soroban_sdk::Symbol::new(env, t2).into()).unwrap_or(false)
+                && topics
+                    .get(0)
+                    .map(|v| v == soroban_sdk::Symbol::new(env, t1).into())
+                    .unwrap_or(false)
+                && topics
+                    .get(1)
+                    .map(|v| v == soroban_sdk::Symbol::new(env, t2).into())
+                    .unwrap_or(false)
         })
         .map(|(_, _, data)| data)
 }
@@ -965,7 +976,10 @@ fn test_withdraw_caps_minting_at_max_batch() {
     let count = MAX_NFT_MINT_BATCH + 5;
     let (env, client, _creator, _token, nft_id) = setup_with_nft(count);
     client.withdraw();
-    assert_eq!(MockNftClient::new(&env, &nft_id).count(), MAX_NFT_MINT_BATCH);
+    assert_eq!(
+        MockNftClient::new(&env, &nft_id).count(),
+        MAX_NFT_MINT_BATCH
+    );
 }
 
 #[test]
@@ -977,7 +991,10 @@ fn test_withdraw_mints_exactly_at_cap_boundary() {
     let nft = BoundedMockNftClient::new(&env, &nft_id);
     assert_eq!(nft.count(), MAX_NFT_MINT_BATCH);
     client.withdraw();
-    assert_eq!(MockNftClient::new(&env, &nft_id).count(), MAX_NFT_MINT_BATCH);
+    assert_eq!(
+        MockNftClient::new(&env, &nft_id).count(),
+        MAX_NFT_MINT_BATCH
+    );
 }
 
 #[test]
@@ -1142,6 +1159,10 @@ fn test_withdrawn_event_payout_reflects_fee_deduction() {
         &None,
         &Some(PlatformConfig { address: platform_addr, fee_bps: 500 }), // 5%
         &None,
+        &Some(PlatformConfig {
+            address: platform_addr,
+            fee_bps: 500,
+        }), // 5%
         &None,
         &None,
     );
@@ -1203,6 +1224,10 @@ fn test_withdraw_emits_fee_transferred_event() {
         &None,
         &None,
         &None,
+        &Some(PlatformConfig {
+            address: platform_addr,
+            fee_bps: 200,
+        }), // 2%
         &None,
         &None,
     );
@@ -1342,11 +1367,9 @@ fn test_emit_withdrawn_allows_zero_nft_count() {
 
 // ── Security: fee_bps in fee_transferred event ───────────────────────────────
 
-/// `fee_transferred` event data includes fee_bps for independent verification.
+/// `fee_transferred` event data includes fee amount for independent verification.
 #[test]
-fn test_fee_transferred_event_data_includes_fee_bps() {
-    use soroban_sdk::TryFromVal;
-
+fn test_fee_transferred_event_data_includes_fee_amount() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -1385,23 +1408,19 @@ fn test_fee_transferred_event_data_includes_fee_bps() {
     sac.mint(&contributor, &goal);
     client.contribute(&contributor, &goal);
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize();
     client.withdraw();
 
-    let data = first_event_data(&env, "campaign", "fee_transferred")
-        .expect("fee_transferred event not found");
-    let tuple: (Address, i128, u32) =
-        <(Address, i128, u32)>::try_from_val(&env, &data).expect("data shape mismatch");
-
     // fee = 1_000_000 * 300 / 10_000 = 30_000
-    assert_eq!(tuple.1, 30_000, "fee amount mismatch");
-    assert_eq!(tuple.2, fee_bps, "fee_bps must be included in event data");
+    let data =
+        event_data(&env, "campaign", "fee_transferred").expect("fee_transferred event not found");
+    let fee: i128 = i128::try_from_val(&env, &data).expect("data shape mismatch");
+    assert_eq!(fee, 30_000, "fee amount mismatch");
 }
 
-/// `fee_transferred` event fee_bps matches the configured platform fee.
+/// `fee_transferred` event is emitted with the correct fee amount.
 #[test]
-fn test_fee_transferred_event_fee_bps_matches_config() {
-    use soroban_sdk::TryFromVal;
-
+fn test_fee_transferred_event_fee_amount_matches_config() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -1443,6 +1462,7 @@ fn test_fee_transferred_event_fee_bps_matches_config() {
     sac.mint(&c, &goal);
     client.contribute(&c, &goal);
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize();
     client.withdraw();
 
     let data = first_event_data(&env, "campaign", "fee_transferred")
@@ -1466,39 +1486,11 @@ fn test_withdrawn_event_includes_ledger_timestamp() {
     let ts = env.ledger().timestamp();
     client.withdraw();
 
+    // fee = 500_000 * 100 / 10_000 = 5_000
     let data =
-        first_event_data(&env, "campaign", "withdrawn").expect("withdrawn event not found");
-    let tuple: (Address, i128, u32, u64) =
-        <(Address, i128, u32, u64)>::try_from_val(&env, &data).expect("data shape mismatch");
-
-    assert_eq!(tuple.3, ts, "timestamp in event must match ledger at withdrawal time");
-}
-
-/// Two withdrawals at different timestamps produce different timestamp fields.
-/// (Replay detection: same creator + payout but different timestamp = distinct event.)
-#[test]
-fn test_withdrawn_event_timestamp_changes_between_calls() {
-    use soroban_sdk::TryFromVal;
-
-    // First campaign
-    let (env1, client1, _creator1, _token1) = setup_no_nft(1_000);
-    let ts1 = env1.ledger().timestamp();
-    client1.withdraw();
-    let data1 =
-        first_event_data(&env1, "campaign", "withdrawn").expect("withdrawn event not found");
-    let tuple1: (Address, i128, u32, u64) =
-        <(Address, i128, u32, u64)>::try_from_val(&env1, &data1).unwrap();
-
-    // Second campaign at a later timestamp
-    let (env2, client2, _creator2, _token2) = setup_no_nft(1_000);
-    env2.ledger().set_timestamp(ts1 + 100);
-    client2.withdraw();
-    let data2 =
-        first_event_data(&env2, "campaign", "withdrawn").expect("withdrawn event not found");
-    let tuple2: (Address, i128, u32, u64) =
-        <(Address, i128, u32, u64)>::try_from_val(&env2, &data2).unwrap();
-
-    assert_ne!(tuple1.3, tuple2.3, "timestamps must differ between withdrawals");
+        event_data(&env, "campaign", "fee_transferred").expect("fee_transferred event not found");
+    let fee: i128 = i128::try_from_val(&env, &data).expect("data shape mismatch");
+    assert_eq!(fee, 5_000);
 }
 
 // ── Security: emit helper — fee_bps boundary ─────────────────────────────────
@@ -1523,22 +1515,22 @@ fn test_double_withdraw_panics() {
 
 // ── Security unit tests for emit helpers ──────────────────────────────────────
 
+/// `emit_fee_transferred` panics on zero fee.
 #[test]
-#[should_panic(expected = "fee_transferred: fee_bps exceeds MAX_FEE_BPS")]
+#[should_panic(expected = "fee_transferred: fee must be positive")]
 fn test_emit_fee_transferred_panics_on_fee_bps_above_max() {
-    use crate::withdraw_event_emission::MAX_FEE_BPS;
     let env = Env::default();
     let addr = Address::generate(&env);
-    emit_fee_transferred(&env, &addr, 100, MAX_FEE_BPS + 1);
+    emit_fee_transferred(&env, &addr, 0);
 }
 
 /// `emit_fee_transferred` accepts fee_bps == MAX_FEE_BPS (boundary).
     emit_fee_transferred(&env, &Address::generate(&env), 0);
 }
 
+/// `emit_fee_transferred` accepts a positive fee (boundary).
 #[test]
-fn test_emit_fee_transferred_accepts_max_fee_bps_boundary() {
-    use crate::withdraw_event_emission::MAX_FEE_BPS;
+fn test_emit_fee_transferred_accepts_positive_fee() {
     let env = Env::default();
     let addr = Address::generate(&env);
     emit_fee_transferred(&env, &addr, 1_000, MAX_FEE_BPS);
@@ -1588,4 +1580,5 @@ fn test_emit_withdrawn_succeeds_with_valid_args() {
 fn test_emit_withdrawn_allows_zero_nft_count() {
     let env = Env::default();
     emit_withdrawn(&env, &Address::generate(&env), 500, 0);
+    emit_fee_transferred(&env, &addr, 1_000);
 }

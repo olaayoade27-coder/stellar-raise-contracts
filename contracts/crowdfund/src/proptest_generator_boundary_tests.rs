@@ -13,8 +13,17 @@
 //! - `progress_bps` must never exceed `PROGRESS_BPS_CAP` (10 000).
 //! Comprehensive tests for proptest generator boundary conditions.
 //!
-//! Ensures boundary constants and validators behave correctly for frontend UI
-//! display and property-based test stability.
+//! @title   ProptestGeneratorBoundary Standalone Tests
+//! @notice  Property-based and unit tests for boundary validators using pure
+//!          functions (no Soroban `Env` required). Suitable for fast CI runs.
+//! @dev     These tests complement `proptest_generator_boundary.test.rs` which
+//!          exercises the on-chain contract client interface.
+//!
+//! ## Security Notes
+//!
+//! - Deadline offset 100 (old buggy minimum) must be rejected.
+//! - `goal == 0` must never reach division logic.
+//! - `progress_bps` must never exceed `PROGRESS_BPS_CAP` (10 000).
 
 use proptest::prelude::*;
 use proptest::strategy::Just;
@@ -146,6 +155,7 @@ mod edge_case_tests {
         assert!(is_valid_deadline_offset(1000));
     }
 
+    /// @security goal == 0 must be rejected to prevent division-by-zero.
     #[test]
     fn goal_zero_rejected() {
         assert!(!is_valid_goal(0));

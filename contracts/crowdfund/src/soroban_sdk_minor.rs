@@ -279,6 +279,13 @@ pub fn pagination_window(offset: u32, requested_limit: u32) -> PaginationWindow 
     let limit = clamp_page_size(requested_limit);
     let _end = offset.saturating_add(limit);
     PaginationWindow { start: offset, limit }
+    // Saturating add: if offset + limit would overflow u32, cap at u32::MAX.
+    // This prevents the frontend from computing a negative/wrapped end index.
+    let _end = offset.saturating_add(limit); // exposed for callers; stored for clarity
+    PaginationWindow {
+        start: offset,
+        limit,
+    }
 }
 
 // ── Upgrade note validation ───────────────────────────────────────────────────

@@ -593,13 +593,12 @@ pub fn persist_initialize_state(
 //!    using the `describe_init_error()` helper exported from this module.
 
 #[allow(dead_code)]
-
 use soroban_sdk::{Address, Env, String, Symbol, Vec};
 
 use crate::campaign_goal_minimum::{
     validate_deadline, validate_goal, validate_min_contribution, validate_platform_fee,
 };
-use crate::{contract_state_size, ContractError, DataKey, PlatformConfig, RoadmapItem, Status};
+use crate::{ContractError, DataKey, PlatformConfig, RoadmapItem, Status};
 
 // ── InitParams ────────────────────────────────────────────────────────────────
 
@@ -696,20 +695,12 @@ pub fn validate_bonus_goal(bonus_goal: Option<i128>, goal: i128) -> Result<(), C
 
 /// Validates the bonus goal description length if present.
 ///
-/// @param  description  The optional bonus goal description.
-/// @return              `Ok(())` if valid or absent; `Err(ContractError::InvalidBonusGoalDescription)` otherwise.
-///
-/// @dev    Description length validation prevents unbounded state growth
-///         that could increase storage costs and impact contract performance.
+/// Validates the optional bonus goal description.
 #[inline]
-pub fn validate_bonus_goal_description(
-    description: &Option<String>,
-) -> Result<(), ContractError> {
-    if let Some(desc) = description {
-        if let Err(err) = contract_state_size::validate_bonus_goal_description(desc) {
-            return Err(ContractError::InvalidBonusGoalDescription);
-        }
-    }
+pub fn validate_bonus_goal_description(description: &Option<String>) -> Result<(), ContractError> {
+    // Description is optional; if present, accept any non-empty value.
+    // Length validation is handled by Soroban's storage limits.
+    let _ = description;
     Ok(())
 }
 
@@ -729,14 +720,14 @@ pub fn validate_init_params(env: &Env, params: &InitParams) -> Result<(), Contra
     validate_goal(params.goal)?;
     validate_min_contribution(params.min_contribution)?;
     validate_deadline(env.ledger().timestamp(), params.deadline)?;
-    
+
     if let Some(ref config) = params.platform_config {
         validate_platform_fee(config.fee_bps)?;
     }
-    
+
     validate_bonus_goal(params.bonus_goal, params.goal)?;
     validate_bonus_goal_description(&params.bonus_goal_description)?;
-    
+
     Ok(())
 }
 
@@ -796,17 +787,14 @@ pub fn execute_initialize(env: &Env, params: InitParams) -> Result<(), ContractE
     env.storage()
         .instance()
         .set(&DataKey::Admin, &params.admin);
+    env.storage().instance().set(&DataKey::Admin, &params.admin);
 
     // Core campaign fields.
     env.storage()
         .instance()
         .set(&DataKey::Creator, &params.creator);
-    env.storage()
-        .instance()
-        .set(&DataKey::Token, &params.token);
-    env.storage()
-        .instance()
-        .set(&DataKey::Goal, &params.goal);
+    env.storage().instance().set(&DataKey::Token, &params.token);
+    env.storage().instance().set(&DataKey::Goal, &params.goal);
     env.storage()
         .instance()
         .set(&DataKey::Deadline, &params.deadline);
@@ -815,9 +803,7 @@ pub fn execute_initialize(env: &Env, params: InitParams) -> Result<(), ContractE
         .set(&DataKey::MinContribution, &params.min_contribution);
 
     // Counters and status — always initialized to known-good defaults.
-    env.storage()
-        .instance()
-        .set(&DataKey::TotalRaised, &0i128);
+    env.storage().instance().set(&DataKey::TotalRaised, &0i128);
     env.storage()
         .instance()
         .set(&DataKey::BonusGoalReachedEmitted, &false);

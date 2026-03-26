@@ -87,8 +87,6 @@ use soroban_sdk::{token, Address};
 //! 4. **Direction lock** — `refund_single_transfer` always transfers
 //!    `contract → contributor`; the direction cannot be reversed by a caller.
 
-#[allow(missing_docs)]
-
 use soroban_sdk::{token, Address, Env};
 use soroban_sdk::{token, Address, Env, Symbol};
 
@@ -107,6 +105,10 @@ pub fn get_contribution(env: &Env, contributor: &Address) -> i128 {
 /// Low-level refund helper: transfer `amount` from contract to `contributor`
 /// and zero the contribution record. Returns the amount transferred.
 ///
+/// @notice Transfers `amount` tokens from `contract_address` to `contributor`.
+/// @notice Skips transfers where `amount <= 0` to prevent gas waste on no-op calls.
+/// @dev    Keeping this in one place prevents parameter-order typos at call sites.
+/// @dev    Emits debug event before transfer for observability.
 /// Does **not** check campaign status or auth — callers are responsible.
 pub fn refund_single(env: &Env, token_address: &Address, contributor: &Address) -> i128 {
     let amount = get_contribution(env, contributor);
@@ -115,7 +117,12 @@ pub fn refund_single(env: &Env, token_address: &Address, contributor: &Address) 
             .persistent()
             .set(&DataKey::Contribution(contributor.clone()), &0i128);
         let token_client = token::Client::new(env, token_address);
-        refund_single_transfer(&token_client, &env.current_contract_address(), contributor, amount);
+        refund_single_transfer(
+            &token_client,
+            &env.current_contract_address(),
+            contributor,
+            amount,
+        );
     }
     amount
 }
@@ -234,8 +241,10 @@ pub fn execute_refund_single(
     }
 
     // Debug logging for devex and monitoring
-    token_client.env().events()
-        .publish(("debug", "refund_transfer_attempt"), (contributor.clone(), amount));
+    token_client.env().events().publish(
+        ("debug", "refund_transfer_attempt"),
+        (contributor.clone(), amount),
+    );
 
     token_client.transfer(contract_address, contributor, &amount);
 /// @title   RefundSingle — Single-contributor token refund logic
@@ -375,7 +384,7 @@ pub fn execute_refund_single(
     // ── Interactions (transfer after state is settled) ────────────────────
     let token_address: Address = env.storage().instance().get(&DataKey::Token).unwrap();
     let token_client = token::Client::new(env, &token_address);
-    
+
     // Explicitly transfer from contract to contributor
     token_client.transfer(&env.current_contract_address(), contributor, &amount);
     refund_single_transfer(

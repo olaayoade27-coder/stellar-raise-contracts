@@ -614,6 +614,10 @@ fn mint_tokens(env: &Env, token_address: &Address, to: &Address, amount: i128) {
 //! - `validate_bonus_goal` - bonus goal validation
 //! - `validate_pledge_preconditions` - pledge operation guards
 //! - `validate_collect_preconditions` - collection operation guards
+//! Tests for the StellarTokenMinter contract.
+//!
+//! @title   StellarTokenMinter Tests
+//! @notice  Validates initialization, minting, authorization, and total count.
 
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
@@ -1605,11 +1609,8 @@ fn test_initialize_platform_fee_max() {
         fee_bps: 10_000,
 #[cfg(test)]
 mod tests {
-    use soroban_sdk::{
-        testutils::{Address as _, Events},
-        Address, Env, Symbol, Vec,
-    };
-    use crate::stellar_token_minter::{StellarTokenMinter, StellarTokenMinterClient};
+    use crate::stellar_token_minter::StellarTokenMinter;
+    use soroban_sdk::{testutils::Address as _, Address, Env};
 
     // ── Test Helpers ─────────────────────────────────────────────────────────
 
@@ -1621,12 +1622,13 @@ mod tests {
     /// - `Address`: The admin address
     /// - `Address`: The minter address
     fn setup() -> (Env, StellarTokenMinterClient<'static>, Address, Address) {
+    fn setup() -> (Env, Address, Address, Address) {
         let env = Env::default();
+        env.mock_all_auths();
         let admin = Address::generate(&env);
         let minter = Address::generate(&env);
         let contract_id = env.register(StellarTokenMinter, ());
-        let client = StellarTokenMinterClient::new(&env, &contract_id);
-        (env, client, admin, minter)
+        (env, contract_id, admin, minter)
     }
 
     assert_eq!(client.goal(), 1_000_000);
@@ -3522,8 +3524,9 @@ fn test_withdraw_one_second_after_deadline() {
     #[test]
     fn test_initialization_success() {
         let (env, client, admin, minter) = setup_with_auth();
+        let (env, contract_id, admin, minter) = setup();
+        let client = crate::stellar_token_minter::StellarTokenMinterClient::new(&env, &contract_id);
         client.initialize(&admin, &minter);
-
         assert_eq!(client.total_minted(), 0);
     }
 
@@ -3536,6 +3539,10 @@ fn test_withdraw_one_second_after_deadline() {
     #[should_panic(expected = "already initialized")]
     fn test_double_initialization_panics() {
         let (env, client, admin, minter) = setup_with_auth();
+    fn test_double_initialization() {
+        let (env, contract_id, admin, minter) = setup();
+        let client = crate::stellar_token_minter::StellarTokenMinterClient::new(&env, &contract_id);
+        client.initialize(&admin, &minter);
         client.initialize(&admin, &minter);
         client.initialize(&admin, &minter); // Should panic
     }
@@ -3567,10 +3574,12 @@ fn test_withdraw_one_second_after_deadline() {
     #[test]
     fn test_mint_success() {
         let (env, client, admin, minter) = setup_with_auth();
+        let (env, contract_id, admin, minter) = setup();
+        let client = crate::stellar_token_minter::StellarTokenMinterClient::new(&env, &contract_id);
         client.initialize(&admin, &minter);
 
         let recipient = Address::generate(&env);
-        let token_id = 123u64;
+        client.mint(&recipient, &1u64);
 
         client.mint(&recipient, &token_id);
 
@@ -3580,6 +3589,8 @@ fn test_withdraw_one_second_after_deadline() {
         // Verify event emission
         let events = env.events().all();
         assert!(!events.is_empty());
+        assert_eq!(client.owner(&1u64), Some(recipient));
+        assert_eq!(client.total_minted(), 1);
     }
 
     /// Test: Duplicate token ID panics with "token already minted".
@@ -3687,6 +3698,14 @@ fn test_withdraw_one_second_after_deadline() {
         // Don't mock auth for non_minter - should fail authorization
         env.mock_all_auths_allowing_non_root_auth();
         client.mint(&recipient, &1u64); // Should panic due to auth check
+    fn test_mint_duplicate_token_id() {
+        let (env, contract_id, admin, minter) = setup();
+        let client = crate::stellar_token_minter::StellarTokenMinterClient::new(&env, &contract_id);
+        client.initialize(&admin, &minter);
+
+        let recipient = Address::generate(&env);
+        client.mint(&recipient, &1u64);
+        client.mint(&recipient, &1u64);
     }
 
     /// Test: Minter can call mint after initialization.
@@ -3857,6 +3876,8 @@ fn test_withdraw_one_second_after_deadline() {
     #[test]
     fn test_set_minter_success() {
         let (env, client, admin, minter) = setup_with_auth();
+        let (env, contract_id, admin, minter) = setup();
+        let client = crate::stellar_token_minter::StellarTokenMinterClient::new(&env, &contract_id);
         client.initialize(&admin, &minter);
 
         let new_minter = Address::generate(&env);

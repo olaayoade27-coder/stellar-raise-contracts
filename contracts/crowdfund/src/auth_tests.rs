@@ -1,8 +1,4 @@
 //! Authorization tests for the crowdfund contract.
-//!
-//! Verifies that `require_auth()` guards are correctly enforced:
-//! - Only the creator can initialize, withdraw, cancel, and update_metadata.
-//! - Only the contributor can authorize their own contribution.
 
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
@@ -39,7 +35,6 @@ fn mint_to(env: &Env, token_address: &Address, to: &Address, amount: i128) {
     token::StellarAssetClient::new(env, token_address).mint(to, &amount);
 }
 
-/// initialize stores all fields and requires creator auth.
 #[test]
 fn test_initialize_requires_creator_auth() {
     let (env, client, creator, token_address, admin) = setup_env();
@@ -52,10 +47,6 @@ fn test_initialize_requires_creator_auth() {
         &1_000_000,
         &deadline,
         &1_000,
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -129,7 +120,6 @@ fn test_withdraw_only_creator_can_withdraw() {
     assert_eq!(token_client.balance(&creator), 10_000_000 + goal);
 }
 
-/// contribute records the contribution for the correct contributor address.
 #[test]
 fn test_contribute_requires_own_auth() {
     let (env, client, creator, token_address, admin) = setup_env();

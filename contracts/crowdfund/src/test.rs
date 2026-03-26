@@ -830,10 +830,6 @@ fn test_initialize_twice_returns_error() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
     );
     assert_eq!(
         result.unwrap_err().unwrap(),
@@ -858,9 +854,6 @@ fn test_initialize_with_bonus_goal() {
         &None,
         &Some(2_000_000i128),
         &Some(desc.clone()),
-        &None,
-        &None,
-        &None,
     );
 
     assert_eq!(client.bonus_goal(), Some(2_000_000));
@@ -885,11 +878,7 @@ fn test_initialize_platform_fee_over_100_panics() {
         &1_000_000,
         &deadline,
         &1_000,
-            &None,
         &Some(bad_config),
-        &None,
-        &None,
-        &None,
         &None,
         &None,
     );
@@ -913,9 +902,6 @@ fn test_initialize_bonus_goal_not_greater_panics() {
         &1_000,
         &None,
         &Some(500_000i128), // less than goal
-        &None,
-        &None,
-        &None,
         &None,
     );
     assert_eq!(
@@ -1446,11 +1432,7 @@ fn test_withdraw_with_platform_fee() {
         &goal,
         &deadline,
         &1_000,
-            &None,
         &Some(config),
-        &None,
-        &None,
-        &None,
         &None,
         &None,
     );
@@ -2630,10 +2612,6 @@ fn test_cancel_by_non_creator_panics() {
         &1_000_000,
         &deadline,
         &1_000,
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,

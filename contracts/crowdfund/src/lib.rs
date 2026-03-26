@@ -7,6 +7,7 @@ use soroban_sdk::{
 #![allow(clippy::too_many_arguments)]
 
 // ── Modules ──────────────────────────────────────────────────────────────────
+#![allow(clippy::too_many_arguments)]
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, token, Address, Env, String, Symbol, Vec,
     contract, contractclient, contracterror, contractimpl, contracttype, token, Address, Env,
@@ -23,10 +24,12 @@ mod refund_single_token;
 pub mod cargo_toml_rust;
     contract, contractclient, contractimpl, contracttype, token, Address, Env, String,
     Symbol, Vec,
+    contract, contractclient, contractimpl, contracttype, token, Address, Env, String, Symbol, Vec,
 };
 
 // ── Modules ──────────────────────────────────────────────────────────────────
 
+pub mod access_control;
 pub mod admin_upgrade_mechanism;
 pub mod access_control;
 pub mod campaign_goal_minimum;
@@ -135,9 +138,10 @@ use refund_single_token::{
 #[cfg(test)]
 #[path = "refund_single_token.test.rs"]
 mod refund_single_token_test;
+use withdraw_event_emission::{emit_withdrawn, mint_nfts_in_batch};
 
-pub mod admin_upgrade_mechanism;
-pub mod access_control;
+// ── Test Modules ──────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod access_control_tests;
 pub mod soroban_sdk_minor;
@@ -169,6 +173,8 @@ mod access_control_tests;
 #[cfg(test)]
 #[path = "admin_upgrade_mechanism.test.rs"]
 mod admin_upgrade_mechanism_test;
+#[cfg(test)]
+mod auth_tests;
 #[cfg(test)]
 #[path = "campaign_goal_minimum.test.rs"]
 mod campaign_goal_minimum_test;
@@ -316,6 +322,16 @@ mod refund_single_token_test;
 #[cfg(test)]
 #[path = "proptest_generator_boundary.test.rs"]
 mod proptest_generator_boundary_test;
+#[path = "proptest_generator_boundary.test.rs"]
+mod proptest_generator_boundary_test;
+#[cfg(test)]
+mod proptest_generator_boundary_tests;
+#[cfg(test)]
+#[path = "refund_single_token.test.rs"]
+mod refund_single_token_test;
+#[cfg(test)]
+#[path = "soroban_sdk_minor_test.rs"]
+mod soroban_sdk_minor_test;
 #[cfg(test)]
 #[path = "soroban_sdk_minor_test.rs"]
 mod soroban_sdk_minor_test;
@@ -329,6 +345,11 @@ mod refund_single_token_test;
 mod soroban_sdk_minor_test;
 #[cfg(test)]
 mod stellar_token_minter_test;
+#[cfg(test)]
+#[path = "stellar_token_minter_test.rs"]
+mod stellar_token_minter_test_original;
+#[cfg(test)]
+mod test;
 #[cfg(test)]
 mod withdraw_event_emission_test;
 #[path = "stellar_token_minter.test.rs"]
@@ -362,7 +383,7 @@ pub const MAX_NFT_MINT_BATCH: u32 = 50;
 ///   `Active` → `Succeeded`  (via `finalize` when deadline passed and goal met)
 ///   `Active` → `Expired`    (via `finalize` when deadline passed and goal not met)
 ///   `Active` → `Cancelled`  (via `cancel`)
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 #[contracttype]
 pub enum Status {
     Active,
@@ -753,6 +774,16 @@ pub struct CampaignInfo {
     /// Returned by `contribute` when `amount` is negative.
     NegativeAmount = 16,
     NegativeAmount = 11,
+    /// Returned by `contribute` when `amount` is below the minimum.
+    BelowMinimum = 14,
+    /// Returned when the campaign is not in Active status.
+    CampaignNotActive = 15,
+    /// Returned by `contribute` when `amount` is negative.
+    NegativeAmount = 16,
+    /// Returned by `pledge` when `amount` is below the minimum.
+    AmountTooLow = 17,
+    /// Returned when the goal is below the platform minimum.
+    GoalTooLow = 18,
 }
 
 /// Interface for an external NFT contract used to mint contributor rewards.
@@ -1505,12 +1536,10 @@ impl CrowdfundContract {
             .get(&contribution_key)
             .unwrap_or(0);
 
-        let new_contribution = previous_amount
-            .checked_add(amount)
-            .ok_or_else(|| {
-                contribute_error_handling::log_contribute_error(&env, ContractError::Overflow);
-                ContractError::Overflow
-            })?;
+        let new_contribution = previous_amount.checked_add(amount).ok_or_else(|| {
+            contribute_error_handling::log_contribute_error(&env, ContractError::Overflow);
+            ContractError::Overflow
+        })?;
 
         // Update the contributor's running total.
         env.storage()
@@ -2130,7 +2159,11 @@ impl CrowdfundContract {
         }
 
         let goal: i128 = env.storage().instance().get(&DataKey::Goal).unwrap();
-        let total: i128 = env.storage().instance().get(&DataKey::TotalRaised).unwrap_or(0);
+        let total: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TotalRaised)
+            .unwrap_or(0);
 
         let new_status = if total >= goal {
             Status::Succeeded
@@ -2139,7 +2172,8 @@ impl CrowdfundContract {
         };
 
         env.storage().instance().set(&DataKey::Status, &new_status);
-        env.events().publish(("campaign", "finalized"), new_status.clone());
+        env.events()
+            .publish(("campaign", "finalized"), new_status.clone());
 
         Ok(new_status)
     }
@@ -2196,7 +2230,12 @@ impl CrowdfundContract {
             };
 
             token_client.transfer(&env.current_contract_address(), &config.address, &fee);
-            withdraw_event_emission::emit_fee_transferred(&env, &config.address, fee, config.fee_bps);
+            withdraw_event_emission::emit_fee_transferred(
+                &env,
+                &config.address,
+                fee,
+                config.fee_bps,
+            );
             total.checked_sub(fee).expect("creator payout underflow")
             total - fee
         } else {

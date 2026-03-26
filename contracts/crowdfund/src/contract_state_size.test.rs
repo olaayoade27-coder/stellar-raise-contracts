@@ -132,9 +132,10 @@ mod tests {
 mod tests {
     use soroban_sdk::{Env, String};
     use crate::contract_state_size::{
-        ContractStateSize, ContractStateSizeClient,
-        MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_CONTRIBUTORS,
+        ContractStateSize, ContractStateSizeClient, MAX_CONTRIBUTORS, MAX_DESCRIPTION_LENGTH,
+        MAX_TITLE_LENGTH,
     };
+    use soroban_sdk::{Env, String};
 
 use crate::contract_state_size::{
     validate_bonus_goal_description, validate_contributor_capacity, validate_description,
@@ -240,7 +241,8 @@ fn filled_addresses(env: &Env, count: u32) -> Vec<Address> {
     fn test_validate_description() {
         let (env, client) = setup();
         let valid_desc = String::from_str(&env, "A valid project description");
-        let too_long_desc = String::from_str(&env, &"A".repeat((MAX_DESCRIPTION_LENGTH + 1) as usize));
+        let too_long_desc =
+            String::from_str(&env, &"A".repeat((MAX_DESCRIPTION_LENGTH + 1) as usize));
 
         assert!(client.validate_description(&valid_desc));
         assert!(!client.validate_description(&too_long_desc));

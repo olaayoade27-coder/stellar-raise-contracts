@@ -171,13 +171,16 @@ pub fn within_log_budget(logged: u32) -> bool {
 //! 4. Admin can update the minter address (admin-only operation)
 //! 5. Contract state is immutable after initialization (no re-initialization)
 
-#![no_std]
+// stellar_token_minter — NFT minting capabilities for the crowdfunding platform.
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, Address, Env, String, Symbol, Vec,
 };
 // ── Test constants ────────────────────────────────────────────────────────────
 //
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol};
+
+// ── Test constants ────────────────────────────────────────────────────────────//
 // Centralised numeric literals used across the stellar_token_minter test suites.
 // Defining them here means CI/CD only needs to update one location when campaign
 // parameters change, and test intent is self-documenting.
@@ -244,6 +247,65 @@ pub const TEST_PARTIAL_CONTRIBUTION_A: i128 = 300_000;
 
 /// Second contribution amount used in the "partial accumulation" test.
 pub const TEST_PARTIAL_CONTRIBUTION_B: i128 = 200_000;
+
+// ── Event / mint budget helpers ───────────────────────────────────────────────
+
+/// Maximum events allowed per Soroban transaction.
+pub const MAX_EVENTS_PER_TX: u32 = 100;
+
+/// Maximum NFTs minted in a single `withdraw()` call.
+pub const MAX_MINT_BATCH: u32 = 50;
+
+/// Maximum log entries per transaction.
+pub const MAX_LOG_ENTRIES: u32 = 64;
+
+/// Returns `true` if `emitted` is below `MAX_EVENTS_PER_TX`.
+#[inline]
+pub fn within_event_budget(emitted: u32) -> bool {
+    emitted < MAX_EVENTS_PER_TX
+}
+
+/// Returns `true` if `minted` is below `MAX_MINT_BATCH`.
+#[inline]
+pub fn within_mint_batch(minted: u32) -> bool {
+    minted < MAX_MINT_BATCH
+}
+
+/// Returns `true` if `logged` is below `MAX_LOG_ENTRIES`.
+#[inline]
+pub fn within_log_budget(logged: u32) -> bool {
+    logged < MAX_LOG_ENTRIES
+}
+
+/// Returns remaining event budget (saturates at 0).
+#[inline]
+pub fn remaining_event_budget(reserved: u32) -> u32 {
+    MAX_EVENTS_PER_TX.saturating_sub(reserved)
+}
+
+/// Returns remaining mint budget (saturates at 0).
+#[inline]
+pub fn remaining_mint_budget(minted: u32) -> u32 {
+    MAX_MINT_BATCH.saturating_sub(minted)
+}
+
+/// Emits a batch summary event if `count > 0` and budget is not exhausted.
+/// Returns `true` if the event was emitted.
+pub fn emit_batch_summary(
+    env: &Env,
+    topic: (&str, &str),
+    count: u32,
+    emitted_so_far: u32,
+) -> bool {
+    if count == 0 || !within_event_budget(emitted_so_far) {
+        return false;
+    }
+    env.events().publish(
+        (Symbol::new(env, topic.0), Symbol::new(env, topic.1)),
+        count,
+    );
+    true
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -644,12 +706,17 @@ pub fn emit_batch_summary(
             .instance()
             .get(&DataKey::TotalMinted)
             .unwrap_or(0);
+        // Update total counter
+        let total: u64 = env.storage().instance().get(&DataKey::TotalMinted).unwrap();
         env.storage()
             .instance()
             .set(&DataKey::TotalMinted, &(total + 1));
 
         // Interaction: Emit mint event for off-chain tracking
         env.events().publish((Symbol::new(&env, "mint"), to), token_id);
+        // Emit event
+        env.events()
+            .publish((Symbol::new(&env, "mint"), to), token_id);
     }
 
     /// Returns the owner of a token, or None if the token has not been minted.
@@ -747,6 +814,7 @@ pub fn emit_batch_summary(
             .expect("contract not initialized");
 
         // Guard: Verify caller is the admin
+            .expect("not initialized");
         current_admin.require_auth();
 
         // Guard: Verify provided admin matches stored admin (prevents spoofing)

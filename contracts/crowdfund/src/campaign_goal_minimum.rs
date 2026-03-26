@@ -229,6 +229,7 @@ pub fn create_campaign(env: Env, creator: Address, goal: u64) {
 //! | Deadline bypass | `MIN_DEADLINE_OFFSET` ensures campaigns run for at least 60 s |
 //! | Progress overflow | `compute_progress_bps` uses `saturating_mul` and caps at `MAX_PROGRESS_BPS` |
 /// Minimum contribution amount in token units.
+/// Minimum contribution amount.
 pub const MIN_CONTRIBUTION_AMOUNT: i128 = 1;
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -283,15 +284,12 @@ pub const MIN_DEADLINE_OFFSET: u64 = 60;
 pub const MIN_DEADLINE_OFFSET: u64 = 60;
 
 /// Maximum platform fee in basis points (10 000 bps = 100 %).
-/// Prevents a misconfigured platform from taking more than 100 % of raised funds.
 pub const MAX_PLATFORM_FEE_BPS: u32 = 10_000;
 
 /// Denominator used when computing progress in basis points.
-/// Must equal MAX_PROGRESS_BPS so a fully-met goal returns exactly MAX_PROGRESS_BPS.
 pub const PROGRESS_BPS_SCALE: i128 = 10_000;
 
 /// Maximum value returned by compute_progress_bps.
-/// Capped at this value even when total_raised > goal (over-funded).
 pub const MAX_PROGRESS_BPS: u32 = 10_000;
 
 // ── Off-chain / string-error validators ──────────────────────────────────────
@@ -604,7 +602,6 @@ pub fn compute_progress_bps(total_raised: i128, goal: i128) -> u32 {
 }
 
 /// Validates that deadline is sufficiently far in the future.
-/// Uses saturating_add to prevent overflow when now is near u64::MAX.
 #[inline]
 pub fn validate_deadline(now: u64, deadline: u64) -> Result<(), &'static str> {
     let min_deadline = now.saturating_add(MIN_DEADLINE_OFFSET);
@@ -627,10 +624,6 @@ pub fn validate_platform_fee(fee_bps: u32) -> Result<(), &'static str> {
 
 /// Validates that goal_amount meets the minimum threshold.
 /// Returns ContractError::GoalTooLow when goal_amount < MIN_GOAL_AMOUNT.
-///
-/// Security: A zero-goal campaign is immediately "successful" after any
-/// contribution, letting the creator drain funds with no real commitment.
-/// Integer-overflow safety: single signed comparison, no arithmetic.
 #[inline]
 pub fn validate_goal_amount(
     _env: &soroban_sdk::Env,
@@ -653,6 +646,7 @@ pub fn validate_goal_amount(
 /// Returns 0 if goal <= 0.
 /// Caps at MAX_PROGRESS_BPS even when total_raised > goal (over-funded).
 /// Uses integer division; precision loss is acceptable for UI display.
+/// Computes progress in basis points, capped at MAX_PROGRESS_BPS.
 #[inline]
 pub fn compute_progress_bps(total_raised: i128, goal: i128) -> u32 {
     if goal <= 0 {
@@ -670,6 +664,13 @@ pub fn compute_progress_bps(total_raised: i128, goal: i128) -> u32 {
         MAX_PROGRESS_BPS
     } else {
         progress as u32
+    let raw = total_raised.saturating_mul(PROGRESS_BPS_SCALE) / goal;
+    if raw <= 0 {
+        0
+    } else if raw >= MAX_PROGRESS_BPS as i128 {
+        MAX_PROGRESS_BPS
+    } else {
+        raw as u32
     }
 }
 
@@ -687,6 +688,13 @@ pub fn create_campaign(env: soroban_sdk::Env, creator: soroban_sdk::Address, goa
         panic!("Goal too low");
     }
     env.events().publish(("campaign", "created"), (creator, goal));
+pub fn create_campaign(env: &Env, creator: Address, goal: i128) {
+    creator.require_auth();
+    if goal < MIN_GOAL_AMOUNT {
+        panic!("Goal too low");
+    }
+    env.events()
+        .publish(("campaign", "created"), (creator, goal));
 }
 
 const MIN_CAMPAIGN_GOAL: u64 = 1;

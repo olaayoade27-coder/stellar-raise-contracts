@@ -39,8 +39,11 @@ mod admin_upgrade {
 
 // Import the main contract for testing
 #![cfg(test)]
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
 use crate::{CrowdfundContract, CrowdfundContractClient};
+use soroban_sdk::{
+    testutils::{Address as _, MockAuth, MockAuthInvoke},
+    Address, BytesN, Env,
+};
 
 // ============================================================================
 // Test Configuration and Constants
@@ -110,7 +113,7 @@ fn setup_full() -> (
     let token_addr = token_id.address();
     let admin = Address::generate(&env);
     let creator = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token_addr = Address::generate(&env);
 
     let contract_id = env.register(CrowdfundContract, ());
     let client = CrowdfundContractClient::new(&env, &contract_id);
@@ -811,15 +814,13 @@ fn setup() -> (
     let admin = Address::generate(&env);
     let creator = Address::generate(&env);
     let deadline = env.ledger().timestamp() + 3_600;
-
     client.initialize(
         &admin,
         &creator,
         &token_addr,
-        &1_000,
+        &1_000i128,
         &deadline,
-        &1,
-        &None,
+        &1i128,
         &None,
         &None,
         &None,
@@ -828,18 +829,17 @@ fn setup() -> (
     (env, contract_id, client, admin, creator, token_addr)
 }
 
-/// Dummy 32-byte hash — used where we only need to reach the auth check,
-/// not actually execute the WASM swap.
+/// Dummy 32-byte hash — used where we only need to reach the auth check.
 fn dummy_hash(env: &Env) -> BytesN<32> {
     BytesN::from_array(env, &[1u8; 32])
 }
 
-// ── Existing tests ────────────────────────────────────────────────────────────
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 /// Admin address is stored and readable after initialize().
 #[test]
 fn test_admin_stored_on_initialize() {
-    let (env, contract_id, client, admin, _creator, _token) = setup();
+    let (env, contract_id, client, _admin, _creator, _token) = setup();
 
     let non_admin = Address::generate(&env);
     env.set_auths(&[]);
@@ -856,7 +856,6 @@ fn test_admin_stored_on_initialize() {
         .try_upgrade(&dummy_hash(&env));
 
     assert!(result.is_err());
-    let _ = admin;
 }
 
 /// Non-admin caller is rejected by upgrade().
@@ -938,7 +937,6 @@ fn test_upgrade_panics_before_initialize() {
 #[test]
 fn test_upgrade_requires_auth() {
     let (env, _contract_id, client, _admin, _creator, _token) = setup();
-
     env.set_auths(&[]);
     let result = client.try_upgrade(&dummy_hash(&env));
     assert!(result.is_err());
@@ -1109,4 +1107,8 @@ fn test_token_address_cannot_upgrade() {
         .try_upgrade(&dummy_hash(&env));
 
     assert!(result.is_err());
+    // This test requires a pre-built WASM binary. Run:
+    //   cargo build --target wasm32-unknown-unknown --release -p crowdfund
+    // then re-run with --ignored to execute.
+    let (_env, _contract_id, _client, _admin, _creator, _token) = setup();
 }
