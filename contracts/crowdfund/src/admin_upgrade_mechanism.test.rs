@@ -38,6 +38,8 @@ mod admin_upgrade {
 }
 
 // Import the main contract for testing
+#![cfg(test)]
+use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
 use crate::{CrowdfundContract, CrowdfundContractClient};
 
 // ============================================================================
@@ -106,6 +108,25 @@ fn setup_full() -> (
     let token_admin = Address::generate(&env);
     let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
     let token_addr = token_id.address();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let token = Address::generate(&env);
+
+    let contract_id = env.register(CrowdfundContract, ());
+    let client = CrowdfundContractClient::new(&env, &contract_id);
+
+    client.initialize(
+        &admin,
+        &creator,
+        &token,
+        &1000i128,
+        &10000u64,
+        &10i128,
+        &None,
+        &None,
+        &None,
+        &None, // metadata_uri
+    );
 
     // Generate admin and creator
     let admin = Address::generate(&env);
@@ -171,6 +192,9 @@ fn test_non_admin_cannot_upgrade() {
 fn setup_simple() -> (Env, CrowdfundContractClient<'static>, Address) {
     let env = Env::default();
     env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let token = Address::generate(&env);
 
     let contract_id = env.register(CrowdfundContract, ());
     let client = CrowdfundContractClient::new(&env, &contract_id);
@@ -888,10 +912,24 @@ fn test_upgrade_panics_before_initialize() {
     let client = CrowdfundContractClient::new(&env, &contract_id);
 
     client.initialize(&admin, &creator, &token, &1000i128, &10000u64, &10i128, &None, &None, &None, &None);
+    // Initialize with mock_all_auths so initialize() succeeds
+    env.mock_all_auths();
+    client.initialize(
+        &admin,
+        &creator,
+        &token,
+        &1000i128,
+        &10000u64,
+        &10i128,
+        &None,
+        &None,
+        &None,
+        &None, // metadata_uri
+    );
 
+    // Clear auths — upgrade() must fail without admin auth
+    env.set_auths(&[]);
     let new_wasm_hash = BytesN::from_array(&env, &[1u8; 32]);
-
-    // We do NOT mock auth, so calling from a random context will fail
     client.upgrade(&new_wasm_hash);
     client.upgrade(&dummy_hash(&env));
 }
