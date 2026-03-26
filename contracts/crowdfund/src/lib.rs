@@ -48,6 +48,7 @@ pub mod admin_upgrade_mechanism;
 
 pub mod contribute_error_handling;
 pub mod crowdfund_initialize_function;
+pub mod npm_package_lock;
 pub mod proptest_generator_boundary;
 pub mod refund_single_token;
 pub mod soroban_sdk_minor;
@@ -296,6 +297,9 @@ mod contribute_error_handling_tests;
 #[cfg(test)]
 #[path = "crowdfund_initialize_function.test.rs"]
 mod crowdfund_initialize_function_test;
+#[path = "npm_package_lock_test.rs"]
+mod npm_package_lock_test;
+
 #[cfg(test)]
 #[path = "proptest_generator_boundary.test.rs"]
 mod proptest_generator_boundary_tests;
@@ -730,6 +734,7 @@ pub struct CampaignInfo {
     CampaignNotActive = 15,
     /// Returned by `contribute` when `amount` is negative.
     NegativeAmount = 16,
+    NegativeAmount = 11,
 }
 
 /// Interface for an external NFT contract used to mint contributor rewards.
