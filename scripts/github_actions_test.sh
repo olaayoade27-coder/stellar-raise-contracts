@@ -288,6 +288,7 @@ else
 fi
 
 # ── Check 12: rust_ci.yml includes elapsed-time logging step ──────────────────
+# ── Check 11: rust_ci.yml includes elapsed-time logging step ──────────────────
 
 if ! grep -qE "elapsed|JOB_START" "$WORKFLOWS_DIR/rust_ci.yml"; then
   fail "rust_ci.yml is missing elapsed-time logging step"

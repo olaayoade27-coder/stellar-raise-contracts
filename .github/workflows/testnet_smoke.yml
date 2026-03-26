@@ -97,7 +97,7 @@ jobs:
           RAISED=$(stellar contract invoke \
       - name: Query and log campaign stats
         run: |
-          stellar contract invoke \
+          RAISED=$(stellar contract invoke \
             --id $CONTRACT_ID \
             --network $NETWORK \
             --source ci-deployer \
