@@ -11,8 +11,8 @@ use soroban_sdk::{
 
 use crate::{
     crowdfund_initialize_function::{
-        describe_init_error, execute_initialize, is_init_error_retryable, validate_bonus_goal,
-        InitParams,
+        describe_init_error, execute_initialize, is_init_error_retryable, log_initialize,
+        validate_bonus_goal, InitParams,
     },
     ContractError, CrowdfundContract, CrowdfundContractClient, PlatformConfig,
 };
@@ -63,10 +63,6 @@ fn default_init(
         &1_000_000,
         &deadline,
         &1_000,
-        &None,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -168,9 +164,6 @@ fn test_initialize_with_platform_config_stores_fee() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
 
     // Contribute and withdraw to verify fee is applied.
@@ -179,6 +172,7 @@ fn test_initialize_with_platform_config_stores_fee() {
     token_admin_client.mint(&contributor, &1_000_000);
     client.contribute(&contributor, &1_000_000);
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize();
     client.withdraw();
 
     let token_client = token::Client::new(&env, &token);
@@ -202,8 +196,6 @@ fn test_initialize_platform_fee_exact_max_accepted() {
         &deadline,
         &1_000,
         &Some(config),
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -231,8 +223,6 @@ fn test_initialize_platform_fee_zero_accepted() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
     );
     assert!(result.is_ok());
 }
@@ -254,8 +244,6 @@ fn test_initialize_platform_fee_over_max_returns_error() {
         &deadline,
         &1_000,
         &Some(config),
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -286,8 +274,6 @@ fn test_initialize_platform_fee_u32_max_returns_error() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
     );
     assert_eq!(
         result.unwrap_err().unwrap(),
@@ -314,8 +300,6 @@ fn test_initialize_with_bonus_goal_stores_values() {
         &Some(2_000_000i128),
         &Some(desc.clone()),
         &None,
-        &None,
-        &None,
     );
     assert_eq!(client.bonus_goal(), Some(2_000_000));
     assert_eq!(client.bonus_goal_description(), Some(desc));
@@ -338,6 +322,7 @@ fn test_initialize_bonus_goal_equal_to_goal_returns_error() {
         &None,
         &Some(1_000_000i128), // equal, not greater
         &None,
+        &None,
     );
     assert_eq!(
         result.unwrap_err().unwrap(),
@@ -359,7 +344,6 @@ fn test_initialize_bonus_goal_less_than_goal_returns_error() {
         &1_000,
         &None,
         &Some(500_000i128),
-        &None,
         &None,
         &None,
     );
@@ -385,7 +369,6 @@ fn test_initialize_bonus_goal_one_above_goal_accepted() {
         &Some(1_000_001i128),
         &None,
         &None,
-        &None,
     );
     assert!(result.is_ok());
     assert_eq!(client.bonus_goal(), Some(1_000_001));
@@ -405,9 +388,6 @@ fn test_initialize_bonus_goal_without_description() {
         &1_000,
         &None,
         &Some(2_000_000i128),
-        &None,
-        &None,
-        &None,
         &None,
         &None,
     );
@@ -435,9 +415,6 @@ fn test_initialize_twice_returns_already_initialized() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert_eq!(
         result.unwrap_err().unwrap(),
@@ -459,9 +436,6 @@ fn test_initialize_twice_different_params_still_errors() {
         &9_999_999, // different goal
         &(deadline + 7200),
         &500,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -493,9 +467,6 @@ fn test_initialize_goal_minimum_accepted() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert!(result.is_ok());
     assert_eq!(client.goal(), 1);
@@ -513,9 +484,6 @@ fn test_initialize_goal_zero_returns_error() {
         &0,
         &deadline,
         &1,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -540,9 +508,6 @@ fn test_initialize_goal_negative_returns_error() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert_eq!(result.unwrap_err().unwrap(), ContractError::InvalidGoal);
 }
@@ -563,9 +528,6 @@ fn test_initialize_goal_i128_min_returns_error() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert_eq!(result.unwrap_err().unwrap(), ContractError::InvalidGoal);
 }
@@ -582,9 +544,6 @@ fn test_initialize_goal_i128_max_accepted() {
         &i128::MAX,
         &deadline,
         &1,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -612,9 +571,6 @@ fn test_initialize_min_contribution_minimum_accepted() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert!(result.is_ok());
     assert_eq!(client.min_contribution(), 1);
@@ -632,9 +588,6 @@ fn test_initialize_min_contribution_zero_returns_error() {
         &1_000_000,
         &deadline,
         &0,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -658,9 +611,6 @@ fn test_initialize_min_contribution_negative_returns_error() {
         &1_000_000,
         &deadline,
         &-100,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -691,9 +641,6 @@ fn test_initialize_deadline_exactly_min_offset_accepted() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert!(result.is_ok());
 }
@@ -711,9 +658,6 @@ fn test_initialize_deadline_one_second_before_min_returns_error() {
         &1_000_000,
         &deadline,
         &1_000,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -738,9 +682,6 @@ fn test_initialize_deadline_equal_to_now_returns_error() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert_eq!(result.unwrap_err().unwrap(), ContractError::DeadlineTooSoon);
 }
@@ -761,9 +702,6 @@ fn test_initialize_deadline_in_past_returns_error() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert_eq!(result.unwrap_err().unwrap(), ContractError::DeadlineTooSoon);
 }
@@ -780,9 +718,6 @@ fn test_initialize_deadline_far_future_accepted() {
         &1_000_000,
         &deadline,
         &1_000,
-        &None,
-        &None,
-        &None,
         &None,
         &None,
         &None,
@@ -929,9 +864,6 @@ fn test_execute_initialize_already_initialized_direct() {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
     );
     assert_eq!(
         result.unwrap_err().unwrap(),
@@ -972,6 +904,7 @@ fn test_post_init_withdraw_works() {
     env.ledger().set_timestamp(deadline + 1);
     let token_client = token::Client::new(&env, &token);
     let before = token_client.balance(&creator);
+    client.finalize();
     client.withdraw();
     assert_eq!(token_client.balance(&creator), before + 1_000_000);
 }
@@ -988,4 +921,91 @@ fn test_post_init_get_stats_correct() {
     assert_eq!(stats.goal, 1_000_000);
     assert_eq!(stats.progress_bps, 0);
     assert_eq!(stats.contributor_count, 0);
+}
+
+// ── log_initialize (bounded event emission) ───────────────────────────────────
+
+/// `initialized` event is emitted exactly once after a successful initialize().
+#[test]
+fn test_log_initialize_emits_exactly_one_event() {
+    let (env, client, creator, token, _admin) = setup();
+    let deadline = env.ledger().timestamp() + 3600;
+    default_init(&client, &creator, &token, deadline);
+
+    let count = env
+        .events()
+        .all()
+        .iter()
+        .filter(|(_, topics, _)| {
+            topics.len() >= 2
+                && soroban_sdk::String::try_from_val(&env, &topics.get(0).unwrap())
+                    .map(|s| s == soroban_sdk::String::from_str(&env, "campaign"))
+                    .unwrap_or(false)
+                && soroban_sdk::String::try_from_val(&env, &topics.get(1).unwrap())
+                    .map(|s| s == soroban_sdk::String::from_str(&env, "initialized"))
+                    .unwrap_or(false)
+        })
+        .count();
+    assert_eq!(count, 1);
+}
+
+/// `log_initialize` event payload contains correct scalar fields.
+#[test]
+fn test_log_initialize_event_payload_is_bounded() {
+    let env = Env::default();
+    let creator = Address::generate(&env);
+    let token = Address::generate(&env);
+    let goal: i128 = 500_000;
+    let deadline: u64 = 9999;
+    let min_contribution: i128 = 100;
+
+    log_initialize(&env, &creator, &token, goal, deadline, min_contribution);
+
+    let events = env.events().all();
+    assert_eq!(events.len(), 1);
+    // Data is a tuple of 5 scalar fields — no unbounded strings.
+    let (_, _, data) = events.first().unwrap();
+    let tuple: (Address, Address, i128, u64, i128) =
+        <(Address, Address, i128, u64, i128)>::try_from_val(&env, &data)
+            .expect("event data shape mismatch");
+    assert_eq!(tuple.0, creator);
+    assert_eq!(tuple.1, token);
+    assert_eq!(tuple.2, goal);
+    assert_eq!(tuple.3, deadline);
+    assert_eq!(tuple.4, min_contribution);
+}
+
+/// `log_initialize` is not emitted when initialize() fails validation.
+#[test]
+fn test_log_initialize_not_emitted_on_validation_failure() {
+    let (env, client, creator, token, admin) = setup();
+    let deadline = env.ledger().timestamp() + 3600;
+    // goal = 0 → InvalidGoal, no event should be emitted
+    let _ = client.try_initialize(
+        &admin,
+        &creator,
+        &token,
+        &0,
+        &deadline,
+        &1,
+        &None,
+        &None,
+        &None,
+        &None,
+    );
+    let initialized_events = env
+        .events()
+        .all()
+        .iter()
+        .filter(|(_, topics, _)| {
+            topics.len() >= 2
+                && soroban_sdk::String::try_from_val(&env, &topics.get(0).unwrap())
+                    .map(|s| s == soroban_sdk::String::from_str(&env, "campaign"))
+                    .unwrap_or(false)
+                && soroban_sdk::String::try_from_val(&env, &topics.get(1).unwrap())
+                    .map(|s| s == soroban_sdk::String::from_str(&env, "initialized"))
+                    .unwrap_or(false)
+        })
+        .count();
+    assert_eq!(initialized_events, 0);
 }

@@ -13,9 +13,21 @@
 /// A goal of zero enables a trivial drain exploit; 1 closes that surface.
 pub const MIN_GOAL_AMOUNT: i128 = 1;
 
-/// Minimum value for the min_contribution parameter.
-/// Prevents zero-amount contributions that waste gas.
-pub const MIN_CONTRIBUTION_AMOUNT: i128 = 1;
+/// Creates a new campaign with goal validation.
+///
+/// # Parameters
+/// - creator: campaign owner
+/// - goal: funding target
+///
+/// # Security
+/// Ensures goal meets minimum threshold and creator is authenticated.
+pub fn create_campaign(env: Env, creator: Address, goal: u64) {
+    creator.require_auth();
+    if goal < MIN_CAMPAIGN_GOAL {
+        panic!("Goal too low");
+    }
+    env.events().publish(("campaign", "created"), (creator, goal));
+}
 
 /// Minimum seconds a deadline must be ahead of the current ledger timestamp.
 pub const MIN_DEADLINE_OFFSET: u64 = 60;
@@ -93,20 +105,25 @@ pub fn validate_goal_amount(
     Ok(())
 }
 
-// ── Progress computation ──────────────────────────────────────────────────────
+/// Validates that `min_contribution` meets the minimum floor.
+pub const MIN_CONTRIBUTION_AMOUNT: i128 = 1;
+pub const MIN_GOAL_AMOUNT: i128 = 100;
 
-/// Computes campaign funding progress in basis points (0-10 000).
-/// Returns 0 when goal <= 0 (division-by-zero guard).
-/// Returns MAX_PROGRESS_BPS when total_raised >= goal (over-funded cap).
 #[inline]
 pub fn compute_progress_bps(total_raised: i128, goal: i128) -> u32 {
     if goal <= 0 {
         return 0;
     }
-    if total_raised >= goal {
-        return MAX_PROGRESS_BPS;
-    }
-    // Safe: total_raised < goal, both positive.
-    let bps = (total_raised * PROGRESS_BPS_SCALE) / goal;
-    bps as u32
+    Ok(())
+}
+
+/// Validates if a goal meets the minimum threshold.
+///
+/// # Parameters
+/// - goal: the proposed goal
+///
+/// # Returns
+/// true if the goal is secure and valid.
+pub fn validate_goal(goal: u64) -> bool {
+    goal >= MIN_CAMPAIGN_GOAL
 }
