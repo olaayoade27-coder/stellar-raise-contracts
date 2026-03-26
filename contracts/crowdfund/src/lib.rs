@@ -48,6 +48,7 @@ pub mod admin_upgrade_mechanism;
 
 pub mod contribute_error_handling;
 pub mod crowdfund_initialize_function;
+#[cfg(test)]
 pub mod npm_package_lock;
 pub mod proptest_generator_boundary;
 pub mod refund_single_token;
