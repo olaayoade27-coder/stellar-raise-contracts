@@ -115,6 +115,43 @@
 }
 
 /* ============================================
+   HEADER HEIGHT ALIAS — per-breakpoint overrides
+   ============================================ */
+
+/* Tablet: header is hidden at ≥ 768px (sidebar takes over), but token is
+   still updated so layout-offset calculations remain consistent. */
+@media (min-width: 768px) {
+  :root {
+    --header-height: var(--header-height-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --header-height: var(--header-height-desktop);
+  }
+}
+
+/* ============================================
+   HEADER LAYOUT OFFSET
+   ============================================ */
+
+/**
+ * Apply to <main> when the fixed site-header is present (mobile only).
+ * Resets to 0 on tablet+ because the header is hidden and the sidebar
+ * handles brand identity instead.
+ */
+.has-header {
+  padding-top: calc(var(--header-height) + var(--safe-area-inset-top, 0px));
+}
+
+@media (min-width: 768px) {
+  .has-header {
+    padding-top: 0;
+  }
+}
+
+/* ============================================
    SAFE AREA INSETS (for notched devices)
    ============================================ */
 
