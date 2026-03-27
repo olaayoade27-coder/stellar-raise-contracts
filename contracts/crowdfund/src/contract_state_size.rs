@@ -270,6 +270,7 @@ impl ContractStateSize {
     pub fn max_stretch_goals(_env: Env) -> u32 {
         MAX_STRETCH_GOALS
     }
+}
 
     /// Returns `true` if `title` length is within `MAX_TITLE_LENGTH`.
     pub fn validate_title(_env: Env, title: String) -> bool {
@@ -298,4 +299,17 @@ pub fn check_string_len(s: &String) -> Result<(), StateSizeError> {
         return Err(StateSizeError::StringTooLong);
     }
     Ok(())
+}
+
+/// Checks stretch goal limit from storage.
+#[inline]
+pub fn check_stretch_goal_limit(env: &soroban_sdk::Env) -> Result<(), &'static str> {
+    use soroban_sdk::Vec;
+    let count: u32 = env
+        .storage()
+        .persistent()
+        .get::<_, Vec<i128>>(&crate::DataKey::StretchGoals)
+        .map(|v| v.len())
+        .unwrap_or(0);
+    validate_stretch_goal_capacity(count)
 }

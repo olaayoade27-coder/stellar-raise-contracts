@@ -106,7 +106,7 @@ use soroban_sdk::{Address, Env, String, Symbol, Vec};
 use crate::campaign_goal_minimum::{
     validate_deadline, validate_goal, validate_min_contribution, validate_platform_fee,
 };
-use crate::{contract_state_size, ContractError, DataKey, PlatformConfig, RoadmapItem, Status};
+use crate::{ContractError, DataKey, PlatformConfig, RoadmapItem, Status};
 
 // ── InitParams ────────────────────────────────────────────────────────────────
 
@@ -197,11 +197,7 @@ pub fn validate_bonus_goal(bonus_goal: Option<i128>, goal: i128) -> Result<(), C
 
 /// Validates the bonus goal description length if present.
 ///
-/// @param  description  The optional bonus goal description.
-/// @return              `Ok(())` if valid or absent; `Err(ContractError::InvalidBonusGoalDescription)` otherwise.
-///
-/// @dev    Description length validation prevents unbounded state growth
-///         that could increase storage costs and impact contract performance.
+/// Validates the optional bonus goal description.
 #[inline]
 pub fn validate_bonus_goal_description(description: &Option<String>) -> Result<(), ContractError> {
     if let Some(desc) = description {

@@ -54,10 +54,6 @@ fn setup() -> (Env, CrowdfundContractClient<'static>, Address) {
         &None,
         &None,
         &None,
-        &None,
-        &None,
-        &None,
-        &None,
     );
 
     (env, client, contributor)
@@ -437,12 +433,12 @@ fn last_contribute_error_event(env: &Env) -> Option<(Symbol, u32)> {
             if topics.len() < 2 {
                 return None;
             }
-            let t0 = soroban_sdk::String::try_from_val(env, &topics.get(0)?).ok()?;
+            let t0 = soroban_sdk::String::from_val(env, &topics.get(0)?).ok()?;
             if t0 != topic0_str {
                 return None;
             }
-            let t1 = Symbol::try_from_val(env, &topics.get(1)?).ok()?;
-            let code = u32::try_from_val(env, &data).ok()?;
+            let t1 = Symbol::from_val(env, &topics.get(1)?).ok()?;
+            let code = u32::from_val(env, &data).ok()?;
             Some((t1, code))
         })
 }

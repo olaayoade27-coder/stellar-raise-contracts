@@ -255,7 +255,7 @@ impl CargoTomlRust {
 
         // Check if dependency is blocked
         if policy.blocked_crates.contains(&name) {
-            panic!("Dependency {} is blocked by security policy", name);
+            panic!("Dependency is blocked by security policy");
         }
 
         // Auto-approve dev dependencies if policy allows

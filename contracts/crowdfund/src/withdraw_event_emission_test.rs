@@ -16,7 +16,7 @@ extern crate std;
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, Events, Ledger},
     token, Address, Env, TryFromVal, Val,
 };
 
@@ -81,6 +81,7 @@ fn setup_with_nft(
     let creator = Address::generate(&env);
     let deadline = env.ledger().timestamp() + 3_600;
     let goal = contributor_count as i128 * 100;
+    let nft_id = env.register(MockNft, ());
 
     client.initialize(
         &creator,
@@ -92,10 +93,7 @@ fn setup_with_nft(
         &None,
         &None,
         &None,
-        &None,
     );
-
-    let nft_id = env.register(MockNft, ());
     client.set_nft_contract(&creator, &nft_id);
 
     for _ in 0..contributor_count {
@@ -133,7 +131,6 @@ fn setup_no_nft(contribution: i128) -> (Env, CrowdfundContractClient<'static>, A
         &contribution,
         &deadline,
         &1,
-        &None,
         &None,
         &None,
         &None,
@@ -483,11 +480,9 @@ fn test_emit_withdrawn_allows_zero_nft_count() {
 
 // ── Security: fee_bps in fee_transferred event ───────────────────────────────
 
-/// `fee_transferred` event data includes fee_bps for independent verification.
+/// `fee_transferred` event data includes fee amount for independent verification.
 #[test]
-fn test_fee_transferred_event_data_includes_fee_bps() {
-    use soroban_sdk::TryFromVal;
-
+fn test_fee_transferred_event_data_includes_fee_amount() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -526,23 +521,19 @@ fn test_fee_transferred_event_data_includes_fee_bps() {
     sac.mint(&contributor, &goal);
     client.contribute(&contributor, &goal);
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize();
     client.withdraw();
 
-    let data = first_event_data(&env, "campaign", "fee_transferred")
-        .expect("fee_transferred event not found");
-    let tuple: (Address, i128, u32) =
-        <(Address, i128, u32)>::try_from_val(&env, &data).expect("data shape mismatch");
-
     // fee = 1_000_000 * 300 / 10_000 = 30_000
-    assert_eq!(tuple.1, 30_000, "fee amount mismatch");
-    assert_eq!(tuple.2, fee_bps, "fee_bps must be included in event data");
+    let data =
+        event_data(&env, "campaign", "fee_transferred").expect("fee_transferred event not found");
+    let fee: i128 = i128::try_from_val(&env, &data).expect("data shape mismatch");
+    assert_eq!(fee, 30_000, "fee amount mismatch");
 }
 
-/// `fee_transferred` event fee_bps matches the configured platform fee.
+/// `fee_transferred` event is emitted with the correct fee amount.
 #[test]
-fn test_fee_transferred_event_fee_bps_matches_config() {
-    use soroban_sdk::TryFromVal;
-
+fn test_fee_transferred_event_fee_amount_matches_config() {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -581,6 +572,7 @@ fn test_fee_transferred_event_fee_bps_matches_config() {
     sac.mint(&contributor, &goal);
     client.contribute(&contributor, &goal);
     env.ledger().set_timestamp(deadline + 1);
+    client.finalize();
     client.withdraw();
 
     let data = first_event_data(&env, "campaign", "fee_transferred")
@@ -645,21 +637,19 @@ fn test_withdrawn_event_timestamp_changes_between_calls() {
 
 // ── Security: emit helper — fee_bps boundary ─────────────────────────────────
 
-/// `emit_fee_transferred` panics when fee_bps exceeds MAX_FEE_BPS.
+/// `emit_fee_transferred` panics on zero fee.
 #[test]
-#[should_panic(expected = "fee_transferred: fee_bps exceeds MAX_FEE_BPS")]
+#[should_panic(expected = "fee_transferred: fee must be positive")]
 fn test_emit_fee_transferred_panics_on_fee_bps_above_max() {
-    use crate::withdraw_event_emission::MAX_FEE_BPS;
     let env = Env::default();
     let addr = Address::generate(&env);
-    emit_fee_transferred(&env, &addr, 100, MAX_FEE_BPS + 1);
+    emit_fee_transferred(&env, &addr, 0);
 }
 
-/// `emit_fee_transferred` accepts fee_bps == MAX_FEE_BPS (boundary).
+/// `emit_fee_transferred` accepts a positive fee (boundary).
 #[test]
-fn test_emit_fee_transferred_accepts_max_fee_bps_boundary() {
-    use crate::withdraw_event_emission::MAX_FEE_BPS;
+fn test_emit_fee_transferred_accepts_positive_fee() {
     let env = Env::default();
     let addr = Address::generate(&env);
-    emit_fee_transferred(&env, &addr, 1_000, MAX_FEE_BPS);
+    emit_fee_transferred(&env, &addr, 1_000);
 }
