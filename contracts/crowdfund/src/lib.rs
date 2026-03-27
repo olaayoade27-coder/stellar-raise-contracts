@@ -337,6 +337,9 @@ mod refund_single_token_test;
 #[path = "soroban_sdk_minor_test.rs"]
 mod soroban_sdk_minor_test;
 #[cfg(test)]
+#[path = "proptest_generator_boundary_tests.rs"]
+mod proptest_generator_boundary_tests;
+#[cfg(test)]
 #[path = "soroban_sdk_minor_test.rs"]
 mod soroban_sdk_minor_test;
 #[cfg(test)]
@@ -791,6 +794,12 @@ pub struct CampaignInfo {
     AmountTooLow = 17,
     /// Returned when the goal is below the platform minimum.
     GoalTooLow = 18,
+    /// Returned by `contribute` when `amount` is zero.
+    ZeroAmount = 14,
+    BelowMinimum = 15,
+    CampaignNotActive = 16,
+    /// Returned by `contribute` when `amount` is negative.
+    NegativeAmount = 17,
 }
 
 /// Interface for an external NFT contract used to mint contributor rewards.
