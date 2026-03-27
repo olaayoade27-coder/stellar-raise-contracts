@@ -65,7 +65,10 @@ mod tests {
         validate_lockfile_version, AuditResult, MAX_PACKAGES, PackageEntry,
     };
     use soroban_sdk::{Env, Map, String, Vec};
+    extern crate std;
     use std::collections::HashMap;
+    use std::format;
+    use std::vec;
 
     use crate::npm_package_lock::{
         audit_all, audit_all_bounded, audit_package, failing_results, is_version_gte,

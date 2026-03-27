@@ -30,16 +30,14 @@
 
 #![allow(dead_code)]
 
+#![cfg(test)]
+extern crate std;
 use std::collections::HashMap;
+use std::format;
+use std::string::String;
+use std::vec::Vec;
 
 // ── Bounds ───────────────────────────────────────────────────────────────────
-
-/// @notice Hard cap on the number of packages processed by `audit_all_bounded`.
-/// @dev    Prevents unbounded iteration — mirrors gas-limit patterns used in
-///         on-chain contracts. Adjust upward only with a documented rationale.
-pub const MAX_PACKAGES: u32 = 500;
-
-// ── Constants ────────────────────────────────────────────────────────────────
 
 /// @notice Hard cap on the number of packages processed by `audit_all_bounded`.
 /// @dev    Prevents unbounded iteration; mirrors gas-limit patterns in

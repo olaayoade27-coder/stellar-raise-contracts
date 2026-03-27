@@ -545,11 +545,23 @@ pub const MAX_STRING_LEN: u32 = 256;
 /// Maximum number of unique contributors tracked per campaign.
 pub const MAX_CONTRIBUTORS: u32 = 1_000;
 
+/// Maximum number of unique pledgers tracked per campaign.
+pub const MAX_PLEDGERS: u32 = 1_000;
+
 /// Maximum number of roadmap items stored for a campaign.
 pub const MAX_ROADMAP_ITEMS: u32 = 32;
 
 /// Maximum number of stretch goals (milestones).
 pub const MAX_STRETCH_GOALS: u32 = 32;
+
+/// Maximum bonus goal description length in bytes.
+pub const MAX_BONUS_GOAL_DESCRIPTION_LENGTH: u32 = 280;
+
+/// Maximum roadmap item description length in bytes.
+pub const MAX_ROADMAP_DESCRIPTION_LENGTH: u32 = 280;
+
+/// Maximum combined metadata length (title + description + socials).
+pub const MAX_METADATA_TOTAL_LENGTH: u32 = 2_304;
 
 /// Minimum allowed campaign goal in token units.
 pub const MIN_GOAL_AMOUNT: i128 = 100;
@@ -1519,10 +1531,15 @@ pub fn check_pledger_limit(env: &soroban_sdk::Env) -> Result<(), &'static str> {
 
 /// Validates total metadata length.
 #[inline]
-pub fn validate_metadata_total_length(total_len: u32) -> Result<(), &'static str> {
+pub fn validate_metadata_total_length(
+    title_len: u32,
+    description_len: u32,
+    socials_len: u32,
+) -> Result<(), &'static str> {
     const AGGREGATE_LIMIT: u32 =
         MAX_TITLE_LENGTH + MAX_DESCRIPTION_LENGTH + MAX_SOCIAL_LINKS_LENGTH;
-    if total_len > AGGREGATE_LIMIT {
+    let total = title_len.saturating_add(description_len).saturating_add(socials_len);
+    if total > AGGREGATE_LIMIT {
         Err("metadata too long")
     } else {
         Ok(())

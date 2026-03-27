@@ -230,6 +230,7 @@ pub fn create_campaign(env: Env, creator: Address, goal: u64) {
 //! | Progress overflow | `compute_progress_bps` uses `saturating_mul` and caps at `MAX_PROGRESS_BPS` |
 /// Minimum contribution amount in token units.
 /// Minimum contribution amount.
+/// Minimum contribution amount in token units.
 pub const MIN_CONTRIBUTION_AMOUNT: i128 = 1;
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -292,6 +293,8 @@ pub const PROGRESS_BPS_SCALE: i128 = 10_000;
 /// Maximum value returned by compute_progress_bps.
 pub const MAX_PROGRESS_BPS: u32 = 10_000;
 
+const MIN_CAMPAIGN_GOAL: u64 = 1;
+
 // ── Off-chain / string-error validators ──────────────────────────────────────
 
 /// Validates that goal meets the minimum threshold.
@@ -349,6 +352,7 @@ pub fn validate_goal_amount(
 /// Validates that `goal_amount` meets the minimum threshold, returning a typed
 /// [`crate::ContractError::GoalTooLow`] on failure.
 /// Validates that `min_contribution` meets the minimum floor.
+/// Validates that `goal_amount` meets the minimum floor.
 ///
 /// @notice  On-chain enforcement entry point. Call inside `initialize()` before
 ///          any state is written so a rejected goal leaves no partial storage.
@@ -675,14 +679,7 @@ pub fn compute_progress_bps(total_raised: i128, goal: i128) -> u32 {
 }
 
 /// Creates a new campaign with goal validation.
-///
-/// # Parameters
-/// - creator: campaign owner
-/// - goal: funding target
-///
-/// # Security
-/// Ensures goal meets minimum threshold and creator is authenticated.
-pub fn create_campaign(env: soroban_sdk::Env, creator: soroban_sdk::Address, goal: u64) {
+pub fn create_campaign(env: Env, creator: Address, goal: u64) {
     creator.require_auth();
     if goal < MIN_CAMPAIGN_GOAL {
         panic!("Goal too low");
@@ -696,5 +693,3 @@ pub fn create_campaign(env: &Env, creator: Address, goal: i128) {
     env.events()
         .publish(("campaign", "created"), (creator, goal));
 }
-
-const MIN_CAMPAIGN_GOAL: u64 = 1;

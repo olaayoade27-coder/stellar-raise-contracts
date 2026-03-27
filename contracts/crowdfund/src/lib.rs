@@ -31,7 +31,6 @@ pub mod cargo_toml_rust;
 
 pub mod access_control;
 pub mod admin_upgrade_mechanism;
-pub mod access_control;
 pub mod campaign_goal_minimum;
 pub mod cargo_toml_rust;
 pub mod contract_state_size;
@@ -51,6 +50,7 @@ pub mod admin_upgrade_mechanism;
 
 pub mod contribute_error_handling;
 pub mod crowdfund_initialize_function;
+#[cfg(test)]
 #[cfg(test)]
 pub mod npm_package_lock;
 pub mod proptest_generator_boundary;
@@ -174,8 +174,6 @@ mod stellar_token_minter_test_original;
 mod test;
 #[cfg(test)]
 mod auth_tests;
-#[cfg(test)]
-mod access_control_tests;
 #[cfg(test)]
 #[path = "admin_upgrade_mechanism.test.rs"]
 mod admin_upgrade_mechanism_test;
@@ -625,6 +623,8 @@ use soroban_sdk::contracterror;
     TokenDecimals,
     /// Optional IPFS URI linking to campaign description, images, and social proof.
     MetadataUri,
+    /// Maximum individual contribution amount.
+    MaxIndividualContribution,
 
     // ── Role-separation keys (access_control module) ──────────────────────
     /// Address with DEFAULT_ADMIN_ROLE — can upgrade, unpause, and transfer roles.
@@ -758,9 +758,6 @@ pub struct CampaignInfo {
     /// Returned by `initialize` when `goal < MIN_GOAL_AMOUNT`.
     GoalTooLow = 13,
 
-    /// Returned by `validate_goal_amount` when `goal_amount < MIN_GOAL_AMOUNT`.
-    GoalTooLow = 18,
-
     /// Returned by `contribute` when `amount` is zero.
     ZeroAmount = 13,
     /// Returned by `contribute` when `amount` is below `min_contribution`.
@@ -778,6 +775,7 @@ pub struct CampaignInfo {
     ZeroAmount = 8,
     BelowMinimum = 9,
     CampaignNotActive = 10,
+    ZeroAmount = 18,
     BelowMinimum = 14,
     CampaignNotActive = 15,
     /// Returned by `contribute` when `amount` is negative.
@@ -2243,7 +2241,6 @@ impl CrowdfundContract {
                 &env,
                 &config.address,
                 fee,
-                config.fee_bps,
             );
             total.checked_sub(fee).expect("creator payout underflow")
             total - fee
@@ -3933,5 +3930,4 @@ impl CrowdfundContract {
     pub fn nft_contract(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::NFTContract)
     }
-}
 }

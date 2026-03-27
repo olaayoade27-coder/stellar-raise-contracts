@@ -717,12 +717,12 @@ pub fn validate_bonus_goal_description(description: &Option<String>) -> Result<(
 ///         Uses short-circuit evaluation via `?` operator for efficiency.
 #[inline]
 pub fn validate_init_params(env: &Env, params: &InitParams) -> Result<(), ContractError> {
-    validate_goal(params.goal)?;
-    validate_min_contribution(params.min_contribution)?;
-    validate_deadline(env.ledger().timestamp(), params.deadline)?;
+    validate_goal(params.goal).map_err(|_| ContractError::InvalidGoal)?;
+    validate_min_contribution(params.min_contribution).map_err(|_| ContractError::InvalidMinContribution)?;
+    validate_deadline(env.ledger().timestamp(), params.deadline).map_err(|_| ContractError::DeadlineTooSoon)?;
 
     if let Some(ref config) = params.platform_config {
-        validate_platform_fee(config.fee_bps)?;
+        validate_platform_fee(config.fee_bps).map_err(|_| ContractError::InvalidPlatformFee)?;
     }
 
     validate_bonus_goal(params.bonus_goal, params.goal)?;
