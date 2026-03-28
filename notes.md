@@ -501,3 +501,4 @@ cargo test --package crowdfund access_control -- --nocapture
 - `GovernanceAddress` should be set to a multisig contract address at `initialize()`, never a plain wallet.
 - Emit an event on every role-sensitive action (`paused`, `unpaused`, `fee_updated`) so off-chain monitors can alert on unexpected calls.
 - Never store roles as plain strings — use typed `DataKey` enum variants to prevent key-collision bugs.
+Placeholder — we'll come back to this.

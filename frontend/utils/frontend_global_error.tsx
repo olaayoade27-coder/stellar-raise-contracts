@@ -117,6 +117,7 @@ export const DEFAULT_ERROR_BOUNDARY_CONFIG: ErrorBoundaryConfig = {
 export function determineErrorSeverity(error: Error): ErrorSeverityLevel {
   const errorMessage = (error?.message ?? '').toLowerCase();
   const errorName = (error?.name ?? '').toLowerCase();
+  const errorMessage = error.message.toLowerCase();
   
   // Check for critical error patterns
   if (
@@ -138,6 +139,12 @@ export function determineErrorSeverity(error: Error): ErrorSeverityLevel {
   }
   
   // Check for medium severity patterns — also match TypeError by name
+  if (
+    errorMessage.includes('validation') ||
+    errorMessage.includes('render') ||
+    errorName === 'typeerror' ||
+    errorMessage.includes('type')
+  // Check for medium severity patterns
   if (
     errorMessage.includes('validation') ||
     errorMessage.includes('render') ||
@@ -178,11 +185,24 @@ export function validateErrorBoundaryConfig(
 /**
  * @notice Creates a secure error info object
  * @param error The error that occurred (may be non-Error in rare cases)
+ * @param error The error that occurred
  * @param errorInfo React error info
  * @returns Sanitized error info
  */
 export function createErrorInfo(
   error: unknown,
+  errorInfo: ErrorInfo
+): ErrorInfoType {
+  const err = error instanceof Error ? error : new Error(
+    error != null ? String(error) : 'An unexpected error occurred'
+  );
+  return {
+    message: err.message,
+    stack: err.stack,
+    componentStack: errorInfo.componentStack,
+    timestamp: new Date(),
+    severity: determineErrorSeverity(err),
+  error: Error,
   errorInfo: ErrorInfo
 ): ErrorInfoType {
   const err = error instanceof Error ? error : new Error(
@@ -267,6 +287,18 @@ export class GlobalErrorBoundary extends Component<
       hasError: true,
       isRecovering: false,
       error: err,
+   * @param error The error that was thrown
+   * @param errorInfo Error information containing component stack
+   * @returns New state to indicate error
+   */
+  static getDerivedStateFromError(error: unknown): Partial<ErrorBoundaryState> {
+    const err = error instanceof Error ? error : new Error(
+      error != null ? String(error) : 'An unexpected error occurred'
+    );
+    return {
+      hasError: true,
+      isRecovering: false,
+      error: err,
     };
   }
 
@@ -274,6 +306,14 @@ export class GlobalErrorBoundary extends Component<
    * @notice Lifecycle method called after an error has been caught
    * @dev Used for logging and error reporting
    * @param error The error that was thrown (may be non-Error)
+   * @param errorInfo Error information containing component stack
+   */
+  componentDidCatch(error: unknown, errorInfo: ErrorInfo): void {
+    const err = error instanceof Error ? error : new Error(
+      error != null ? String(error) : 'An unexpected error occurred'
+    );
+    const errorInfoType = createErrorInfo(err, errorInfo);
+   * @param error The error that was thrown
    * @param errorInfo Error information containing component stack
    */
   componentDidCatch(error: unknown, errorInfo: ErrorInfo): void {
@@ -289,16 +329,19 @@ export class GlobalErrorBoundary extends Component<
     // Call onError callback if provided
     if (this.props.onError) {
       this.props.onError(err, errorInfoType);
+      this.props.onError(error, errorInfoType);
     }
 
     // Log error if logging is enabled
     if (this.config.enableLogging) {
       this.logError(err, errorInfoType);
+      this.logError(error, errorInfoType);
     }
 
     // Report error to endpoint if configured
     if (this.config.reportingEndpoint) {
       this.reportError(err, errorInfoType);
+      this.reportError(error, errorInfoType);
     }
   }
 
@@ -357,6 +400,7 @@ export class GlobalErrorBoundary extends Component<
    *      method shows "Retrying..." instead of the error UI. React will
    *      attempt to re-render children; if they throw again,
    *      getDerivedStateFromError resets isRecovering and sets hasError=true.
+   * @dev Attempts to re-render the component tree
    */
   private handleRetry = (): void => {
     if (this.state.retryCount >= this.config.maxRetries) {
@@ -367,6 +411,10 @@ export class GlobalErrorBoundary extends Component<
       hasError: false,
       error: null,
       errorInfo: null,
+      isRecovering: true,
+      retryCount: prevState.retryCount + 1,
+    }));
+    this.setState({
       isRecovering: true,
       retryCount: prevState.retryCount + 1,
     }));
@@ -383,6 +431,7 @@ export class GlobalErrorBoundary extends Component<
   /**
    * @notice Handles dismiss action
    * @dev Dismisses the error and shows children anyway (dangerous)
+   * @dev Dismesses the error and shows children anyway (dangerous)
    */
   private handleDismiss = (): void => {
     this.setState({
@@ -410,6 +459,8 @@ export class GlobalErrorBoundary extends Component<
 
     // If there's an error, show fallback
     if (hasError) {
+    // If there's an error, show fallback
+    if (hasError) {
       // Use custom fallback if provided
       if (this.props.fallback) {
         return this.props.fallback;
@@ -430,6 +481,7 @@ export class GlobalErrorBoundary extends Component<
    */
   private renderErrorUI(): ReactNode {
     const { error, retryCount } = this.state;
+    const { error, retryCount, isRecovering } = this.state;
     const { showErrorDetails, enableRecovery } = this.config;
 
     return (
@@ -478,6 +530,7 @@ export class GlobalErrorBoundary extends Component<
         {enableRecovery && retryCount > 0 && (
           <p style={{ margin: 0, fontSize: '0.875rem', color: '#6c757d' }}>
             {`Retry attempt: ${retryCount} / ${this.config.maxRetries}`}
+            Retry attempt: {retryCount} / {this.config.maxRetries}
           </p>
         )}
 
@@ -503,6 +556,11 @@ export class GlobalErrorBoundary extends Component<
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
+                }}
+              >
+                Retry
+                  cursor: isRecovering ? 'not-allowed' : 'pointer',
+                  opacity: isRecovering ? 0.6 : 1,
                 }}
               >
                 Retry

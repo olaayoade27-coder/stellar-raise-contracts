@@ -18,6 +18,12 @@ The `SorobanSdkMinor` contract demonstrates the key API changes in Soroban SDK v
 
 ```rust
 /// Store the admin address (admin must authorize). One-time; panics on re-init.
+/// Store the admin address (admin must authorize).
+/// Store the admin address (admin must authorize). This operation is one-time
+/// and will panic if attempted again.
+///
+/// - Security: prevents accidental or malicious re-initialization which could
+///   overwrite the admin and take control of contract state.
 fn init(env: Env, admin: Address);
 
 /// Verify caller authorization — returns true or panics.
@@ -28,6 +34,10 @@ fn get_admin(env: Env) -> Address;
 
 /// Emit a small typed event with topic `ping`.
 /// Requires `from` to authorize. Demonstrates v22 event bounds.
+///
+/// - `emit_ping(env, from, value)` requires `from` to authorize the call.
+/// - Demonstrates that event topics should be short `Symbol`s and payloads
+///   must be `Val`-compatible (primitive/contracttype) under v22.
 fn emit_ping(env: Env, from: Address, value: i32);
 ```
 

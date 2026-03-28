@@ -59,6 +59,7 @@ fn validate_goal_rejects_zero() {
         err.contains("MIN_GOAL_AMOUNT"),
         "error should mention MIN_GOAL_AMOUNT: {err}"
     );
+    assert!(err.contains("MIN_GOAL_AMOUNT"), "error should mention MIN_GOAL_AMOUNT: {err}");
 }
 
 #[test]
@@ -243,4 +244,55 @@ fn compute_progress_bps_99_percent() {
 fn compute_progress_bps_1_bps() {
     // 1 / 10_000 = 0.01 % = 1 bps
     assert_eq!(compute_progress_bps(1, 10_000), 1);
+}
+
+// ── validate_goal_amount (typed ContractError::GoalTooLow) ───────────────────
+
+/// Test Case 1 (Success): goal exactly at the threshold is accepted.
+#[test]
+fn validate_goal_amount_accepts_exact_threshold() {
+    let env = Env::default();
+    assert!(validate_goal_amount(&env, MIN_GOAL_AMOUNT).is_ok());
+}
+
+/// Test Case 2 (Success): goal well above the threshold is accepted.
+#[test]
+fn validate_goal_amount_accepts_well_above_threshold() {
+    let env = Env::default();
+    assert!(validate_goal_amount(&env, 1_000_000_000).is_ok());
+}
+
+/// Test Case 3 (Failure): goal below threshold returns Error::GoalTooLow.
+#[test]
+fn validate_goal_amount_rejects_below_threshold_with_goal_too_low() {
+    let env = Env::default();
+    let result = validate_goal_amount(&env, MIN_GOAL_AMOUNT - 1);
+    assert_eq!(result, Err(ContractError::GoalTooLow));
+}
+
+/// Test Case 4 (Edge Case): zero goal returns Error::GoalTooLow.
+/// Test Case 3 (Failure): goal below threshold returns ContractError::GoalTooLow.
+#[test]
+fn validate_goal_amount_rejects_below_threshold_with_goal_too_low() {
+    let env = Env::default();
+    assert_eq!(
+        validate_goal_amount(&env, MIN_GOAL_AMOUNT - 1),
+        Err(ContractError::GoalTooLow)
+    );
+}
+
+/// Test Case 4 (Edge Case): zero goal returns ContractError::GoalTooLow.
+#[test]
+fn validate_goal_amount_rejects_zero() {
+    let env = Env::default();
+    assert_eq!(validate_goal_amount(&env, 0), Err(ContractError::GoalTooLow));
+}
+
+/// Test Case 4 (Edge Case): negative goal returns Error::GoalTooLow.
+/// Test Case 4 (Edge Case): negative goal returns ContractError::GoalTooLow.
+#[test]
+fn validate_goal_amount_rejects_negative() {
+    let env = Env::default();
+    assert_eq!(validate_goal_amount(&env, -1), Err(ContractError::GoalTooLow));
+    assert_eq!(validate_goal_amount(&env, i128::MIN), Err(ContractError::GoalTooLow));
 }

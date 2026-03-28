@@ -117,6 +117,84 @@ Desktop:  > 1024px   (Full-screen management interface)
 </main>
 ```
 
+### Site Header (Mobile < 768px)
+
+**Location**: Fixed at top of screen  
+**Height**: 48px (mobile), hidden on tablet/desktop  
+**Features**:
+- Brand logo + "Stellar Raise" wordmark on all mobile viewports
+- Skip-navigation link as first focusable child (WCAG 2.4.1)
+- Elevated shadow (`--shadow-md`) when page is scrolled beyond 0 px
+- Safe-area inset support for notched devices
+- Contextual actions slot (e.g. wallet-connect button)
+
+**Breakpoint behaviour**:
+
+| Viewport | Header | BottomNav | Sidebar |
+|---|---|---|---|
+| < 768 px (mobile) | ✓ Visible | ✓ Visible | ✗ Hidden |
+| 768–1023 px (tablet) | ✗ Hidden | ✗ Hidden | ✓ 240 px |
+| ≥ 1024 px (desktop) | ✗ Hidden | ✗ Hidden | ✓ 280 px |
+
+**Implementation**:
+```html
+<!-- Link stylesheets in this order -->
+<link rel="stylesheet" href="styles/responsive.css" />
+<link rel="stylesheet" href="components/navigation/Header.css" />
+
+<header class="site-header" role="banner">
+  <a href="#main-content" class="site-header__skip-link">Skip to main content</a>
+  <div class="site-header__inner">
+    <a href="/" class="site-header__brand" aria-label="Stellar Raise — home">
+      <svg class="site-header__logo" aria-hidden="true"><!-- logo --></svg>
+      <span class="site-header__brand-name">Stellar Raise</span>
+    </a>
+    <div class="site-header__actions">
+      <!-- e.g. wallet-connect button -->
+    </div>
+  </div>
+</header>
+
+<!-- Offset main content so it is never obscured by the fixed header -->
+<main id="main-content" class="has-header has-bottom-nav" tabindex="-1">
+  <!-- page content -->
+</main>
+```
+
+**Scroll shadow toggle** (inline script):
+```js
+const header = document.querySelector('.site-header');
+window.addEventListener('scroll', () => {
+  header.classList.toggle('site-header--scrolled', window.scrollY > 0);
+}, { passive: true });
+```
+
+**CSS custom properties consumed by `Header.css`**:
+
+| Token | Usage |
+|---|---|
+| `--header-height-mobile` | Height at < 768 px (48 px) |
+| `--header-height-tablet` | Height at 768–1023 px (56 px) |
+| `--header-height-desktop` | Height at ≥ 1024 px (64 px) |
+| `--header-height` | Per-breakpoint alias for layout offsets |
+| `--color-neutral-100` | Header background |
+| `--color-deep-navy` | Brand name text colour |
+| `--color-primary-blue` | Focus indicator, logo fill |
+| `--font-family-primary` | All header text |
+| `--font-size-lg` | Brand name font size |
+| `--shadow-sm` | Resting shadow |
+| `--shadow-md` | Scrolled shadow |
+| `--transition-fast` | Shadow transition on scroll |
+| `--z-fixed` | z-index (same layer as BottomNav/Sidebar) |
+| `--safe-area-inset-top` | Top padding for notched devices |
+| `--space-4` | Horizontal padding |
+| `--touch-target-min` | Minimum 44 px for interactive elements |
+
+**Co-existence edge case — `.has-header` + `.has-sidebar`**:  
+If both classes are applied to the same `<main>` element, the header's `padding-top` and the sidebar's `margin-left` will both apply. This is harmless but redundant on tablet/desktop because the header is hidden and `.has-header` resets `padding-top` to `0` at ≥ 768 px. No corrective action is needed.
+
+---
+
 ### Sidebar Navigation (Tablet & Desktop ≥ 768px)
 
 **Location**: Fixed on left side  
@@ -137,6 +215,74 @@ Desktop:  > 1024px   (Full-screen management interface)
   <!-- Content automatically offset for sidebar -->
 </main>
 ```
+
+---
+
+### Header (Mobile < 768px)
+
+**Location**: Fixed at top of screen  
+**Height**: 48px (mobile), token-driven via `--header-height`  
+**Visibility**: Mobile only — hidden at ≥ 768px (sidebar provides brand identity)
+
+**Breakpoint behaviour**:
+
+| Viewport | Header | BottomNav | Sidebar |
+|----------|--------|-----------|---------|
+| < 768px (mobile) | ✓ visible | ✓ visible | ✗ hidden |
+| 768–1023px (tablet) | ✗ hidden | ✗ hidden | ✓ 240px |
+| ≥ 1024px (desktop) | ✗ hidden | ✗ hidden | ✓ 280px |
+
+**CSS custom properties consumed**:
+
+| Token | Usage |
+|-------|-------|
+| `--header-height-mobile` | Height at < 768px (48px) |
+| `--header-height-tablet` | Height at 768–1023px (56px) |
+| `--header-height-desktop` | Height at ≥ 1024px (64px) |
+| `--header-height` | Per-breakpoint alias for layout offsets |
+| `--color-neutral-100` | Header background |
+| `--color-deep-navy` | Brand name text |
+| `--color-primary-blue` | Focus indicator, logo fill |
+| `--font-family-primary` | All header text |
+| `--font-size-lg` | Brand name font size |
+| `--shadow-sm` | Resting shadow |
+| `--shadow-md` | Scrolled shadow (`.site-header--scrolled`) |
+| `--transition-fast` | Shadow transition |
+| `--z-fixed` | z-index (same layer as BottomNav/Sidebar) |
+| `--safe-area-inset-top` | Top padding for notched devices |
+| `--space-4` | Horizontal padding |
+
+**Implementation**:
+```html
+<header class="site-header" role="banner">
+  <a href="#main-content" class="site-header__skip-link">Skip to main content</a>
+  <div class="site-header__inner">
+    <a href="/" class="site-header__brand" aria-label="Stellar Raise — home">
+      <svg class="site-header__logo" aria-hidden="true" focusable="false"><!-- logo --></svg>
+      <span class="site-header__brand-name">Stellar Raise</span>
+    </a>
+    <div class="site-header__actions"><!-- wallet button etc. --></div>
+  </div>
+</header>
+
+<!-- Main content offset on mobile -->
+<main id="main-content" class="has-header has-bottom-nav">
+  <!-- content -->
+</main>
+```
+
+**Content adjustment**:
+```html
+<!-- Mobile: offset for both header (top) and BottomNav (bottom) -->
+<main class="has-header has-bottom-nav">...</main>
+
+<!-- Tablet+: sidebar layout, no header offset needed -->
+<main class="has-sidebar">...</main>
+```
+
+> **Edge case — `.has-header` + `.has-sidebar` on the same element**: Both classes can coexist without harm. On tablet/desktop `.has-header` resets `padding-top` to `0`, so only the sidebar `margin-left` applies. On mobile `.has-sidebar` has no effect (sidebar is hidden). No conflict occurs.
+
+**Scroll shadow**: A small passive `scroll` listener toggles `.site-header--scrolled` to elevate the shadow from `--shadow-sm` to `--shadow-md`. See `Header.html` for the reference implementation.
 
 ---
 
@@ -624,11 +770,14 @@ Always write mobile styles first, then enhance for larger screens:
 ```
 frontend/
 ├── styles/
-│   └── responsive.css          # Core design system
+│   └── responsive.css          # Core design system (includes --header-height-* tokens)
 ├── components/
 │   ├── navigation/
 │   │   ├── BottomNav.css
 │   │   ├── BottomNav.html
+│   │   ├── Header.css          # Site-level header (mobile only)
+│   │   ├── Header.css          # Site header (mobile-only fixed header)
+│   │   ├── Header.html         # Self-contained demo page
 │   │   ├── Sidebar.css
 │   │   └── Sidebar.html
 │   ├── modals/

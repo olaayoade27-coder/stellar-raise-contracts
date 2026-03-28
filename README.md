@@ -16,6 +16,53 @@ Stellar Raise lets anyone create a crowdfunding campaign on-chain. Contributors 
 | **Contribute** | Pledge tokens before the deadline |
 | **Withdraw** | Creator claims funds after a successful campaign |
 | **Refund** | Contributors individually reclaim tokens if the goal is missed (pull-based) |
+| **Contribute** | Pledge tokens before the deadline                  |
+| **Withdraw**   | Creator claims funds after a successful campaign   |
+| **Refund**     | Contributors reclaim tokens if the goal is missed  |
+
+## Architecture
+
+The following diagram shows the high-level relationship between the frontend, Soroban smart contracts, and the Stellar network:
+
+```mermaid
+graph TD
+    A[User Browser] -->|HTTP / HTTPS| B[Frontend<br/>Next.js / React]
+
+    B -->|Soroban SDK calls| C[Soroban RPC Node]
+    B -->|Horizon API calls| D[Horizon API Server]
+
+    C -->|Deploy / Invoke| E[Soroban Smart Contracts<br/>Crowdfund Contract<br/>Factory Contract]
+    D -->|Account / Transaction data| B
+
+    E -->|Read / Write state| F[Stellar Ledger]
+    C -->|Submit transactions| F
+
+    F -->|Ledger events| G[Off-chain Indexer<br/>Optional]
+    G -->|Indexed campaign data| B
+
+    subgraph network["Stellar Network"]
+        C
+        D
+        F
+    end
+
+    subgraph contracts["Smart Contracts Layer"]
+        E
+    end
+
+    subgraph services["Off-chain Services"]
+        G
+    end
+```
+
+### Layer Summary
+
+| Layer                 | Technology            | Responsibility                           |
+| :-------------------- | :-------------------- | :--------------------------------------- |
+| **Frontend**          | Next.js / React       | User interface and wallet interaction    |
+| **Smart Contracts**   | Soroban / Rust        | Campaign logic, fund management          |
+| **Stellar Network**   | Soroban RPC + Horizon | Transaction processing and ledger state  |
+| **Off-chain Indexer** | Optional              | Event indexing for faster data retrieval |
 
 ## Project Structure
 
@@ -221,6 +268,18 @@ We provide automated scripts to simplify deploying and interacting with the crow
 
    ```bash
    stellar keys generate --global alice
+1. **Install Soroban CLI:**
+
+   ```bash
+   curl -Ls https://soroban.stellar.org/install-soroban.sh | sh
+   source ~/.bashrc   # or ~/.zshrc
+   stellar --version  # should print stellar-cli x.y.z
+   ```
+
+2. **Configure your Stellar identity:**
+
+   ```bash
+   stellar keys generate --global alice
    ```
 
 3. **Add the testnet network:**
@@ -228,6 +287,7 @@ We provide automated scripts to simplify deploying and interacting with the crow
    stellar network add testnet \
      --rpc-url https://soroban-testnet.stellar.org:443 \
      --network-passphrase "Test SDF Network ; September 2015"
+   soroban network add testnet --rpc-url https://soroban-testnet.stellar.org:443 --network-passphrase "Test SDF Network ; September 2015"
    ```
 
 #### Deploy Script
@@ -311,6 +371,7 @@ stellar contract deploy \
 
 # Initialize the campaign
 stellar contract invoke \
+soroban contract invoke \
   --id <CONTRACT_ADDRESS> \
   --network testnet \
   --source <YOUR_SECRET_KEY> \

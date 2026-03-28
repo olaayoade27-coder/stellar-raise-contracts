@@ -65,6 +65,8 @@ jobs:
           DEADLINE=$(( $(date +%s) + 86400 ))
           CI_ADDR=$(stellar keys address ci-deployer)
           stellar contract invoke \
+          CI_ADDR=$(soroban keys address ci-deployer)
+          soroban contract invoke \
             --id $CONTRACT_ID \
             --network $NETWORK \
             --source ci-deployer \
@@ -90,6 +92,10 @@ jobs:
           fi
 
       - name: Query and log total raised
+      - name: Query and log campaign stats
+        run: |
+          RAISED=$(stellar contract invoke \
+      - name: Query and log campaign stats
         run: |
           RAISED=$(stellar contract invoke \
             --id $CONTRACT_ID \
@@ -97,6 +103,7 @@ jobs:
             --source ci-deployer \
             -- total_raised)
           echo "total_raised: $RAISED"
+            -- get_stats
 
       - name: Log deployed contract address for reference
         run: |

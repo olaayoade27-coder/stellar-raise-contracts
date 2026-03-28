@@ -330,6 +330,7 @@ mod refund_single_tests {
     /// @test Bulk refund() cannot be called twice (status guard).
     #[test]
     #[should_panic(expected = "campaign must be in Expired state to refund")]
+    #[should_panic(expected = "campaign is not active")]
     fn test_bulk_refund_cannot_be_called_twice() {
         let (env, client, creator, token_address, admin) = setup();
         let deadline = env.ledger().timestamp() + 3_600;
@@ -341,6 +342,8 @@ mod refund_single_tests {
 
         env.ledger().set_timestamp(deadline + 1);
         client.finalize(); // Active → Expired
+        client.refund();
+        client.refund(); // must panic — already Expired, not Active
         client.refund();
         client.refund(); // must panic — already Expired, not Active
     }
@@ -357,11 +360,13 @@ mod refund_single_tests {
         client.contribute(&alice, &100_000);
 
         // Do NOT advance past deadline — campaign is Active, refund panics
+        // Do NOT advance past deadline
         let result = client.try_refund();
         assert!(result.is_err());
     }
 
     /// @test refund() is blocked when the goal has been reached (Succeeded state).
+    /// @test refund() is blocked when the goal has been reached.
     #[test]
     fn test_refund_blocked_when_goal_reached() {
         let (env, client, creator, token_address, admin) = setup();
@@ -375,6 +380,9 @@ mod refund_single_tests {
 
         env.ledger().set_timestamp(deadline + 1);
         client.finalize(); // Active → Succeeded
+
+        let result = client.try_refund();
+        assert!(result.is_err()); // panics — not Expired
 
         let result = client.try_refund();
         assert!(result.is_err()); // panics — not Expired

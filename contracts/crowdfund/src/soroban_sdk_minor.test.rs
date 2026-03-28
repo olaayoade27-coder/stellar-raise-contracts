@@ -4,6 +4,7 @@
 //! validation, pagination bounds, upgrade-note validation, audit event
 //! emission, SdkChangeRecord construction, emit_ping_event auth enforcement,
 //! and all edge cases for the v22 minor bump.
+//! emission, and all new edge cases added for the v22 minor bump.
 
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
 
@@ -13,6 +14,14 @@ use crate::soroban_sdk_minor::{
     pagination_window, parse_minor, validate_upgrade_note, validate_wasm_hash,
     CompatibilityStatus, FRONTEND_PAGE_SIZE_MAX, FRONTEND_PAGE_SIZE_MIN, SDK_VERSION_BASELINE,
     SDK_VERSION_TARGET, UPGRADE_NOTE_MAX_LEN,
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+    assess_compatibility, clamp_page_size, emit_upgrade_audit_event,
+    emit_upgrade_audit_event_with_note, is_minor_bump, pagination_window, parse_minor,
+    validate_upgrade_note, validate_wasm_hash, CompatibilityStatus, FRONTEND_PAGE_SIZE_MAX,
+    FRONTEND_PAGE_SIZE_MIN, SDK_VERSION_BASELINE, SDK_VERSION_TARGET, UPGRADE_NOTE_MAX_LEN,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,11 +49,13 @@ fn version_constants_are_non_empty() {
 // ── assess_compatibility ──────────────────────────────────────────────────────
 
 /// Same-major minor bump → Compatible.
+/// @notice Same-major bump stays compatible.
 #[test]
 fn compatibility_same_major_is_compatible() {
     let env = make_env();
     assert_eq!(
         assess_compatibility(&env, "22.0.0", "22.1.0"),
+        assess_compatibility(&env, "22.0.0", "22.1.1"),
         CompatibilityStatus::Compatible
     );
 }
@@ -70,6 +81,7 @@ fn compatibility_patch_bump_is_compatible() {
 }
 
 /// Cross-major upgrade → RequiresMigration.
+/// @notice Cross-major bump requires migration.
 #[test]
 fn compatibility_cross_major_requires_migration() {
     let env = make_env();
@@ -110,6 +122,142 @@ fn compatibility_one_malformed_requires_migration() {
 }
 
 /// Empty `from_version` → Incompatible (not silently major-0).
+#[test]
+fn compatibility_empty_from_version_is_incompatible() {
+    let env = make_env();
+    assert_eq!(
+        assess_compatibility(&env, "", "22.0.0"),
+        CompatibilityStatus::Incompatible
+    );
+}
+
+/// Empty `to_version` → Incompatible.
+#[test]
+fn compatibility_empty_to_version_is_incompatible() {
+    let env = make_env();
+    assert_eq!(
+        assess_compatibility(&env, "22.0.0", ""),
+        CompatibilityStatus::Incompatible
+    );
+}
+
+/// Both empty → Incompatible.
+#[test]
+fn compatibility_both_empty_is_incompatible() {
+    let env = make_env();
+    assert_eq!(
+        assess_compatibility(&env, "", ""),
+        CompatibilityStatus::Incompatible
+    );
+}
+
+/// Large version numbers do not overflow.
+#[test]
+fn compatibility_large_version_numbers() {
+    let env = make_env();
+    assert_eq!(
+        assess_compatibility(&env, "4294967295.0.0", "4294967295.99.0"),
+        CompatibilityStatus::Compatible
+    );
+}
+
+// ── parse_minor ───────────────────────────────────────────────────────────────
+
+#[test]
+fn parse_minor_standard_semver() {
+    assert_eq!(parse_minor("22.3.0"), 3);
+    assert_eq!(parse_minor("22.0.0"), 0);
+    assert_eq!(parse_minor("22.99.1"), 99);
+}
+
+/// Only major present → minor is 0.
+#[test]
+fn parse_minor_no_minor_component() {
+    assert_eq!(parse_minor("22"), 0);
+}
+
+/// Trailing dot with no minor value → 0.
+#[test]
+fn parse_minor_trailing_dot() {
+    assert_eq!(parse_minor("22."), 0);
+}
+
+/// Non-numeric minor → 0.
+#[test]
+fn parse_minor_non_numeric() {
+    assert_eq!(parse_minor("22.x.0"), 0);
+}
+
+/// Empty string → 0.
+#[test]
+fn parse_minor_empty_string() {
+    assert_eq!(parse_minor(""), 0);
+}
+
+// ── is_minor_bump ─────────────────────────────────────────────────────────────
+
+#[test]
+fn is_minor_bump_detects_forward_minor() {
+    assert!(is_minor_bump("22.0.0", "22.1.0"));
+    assert!(is_minor_bump("22.1.0", "22.2.0"));
+}
+
+/// Same minor → not a minor bump.
+#[test]
+fn is_minor_bump_same_minor_is_false() {
+    assert!(!is_minor_bump("22.1.0", "22.1.0"));
+}
+
+/// Patch-only change → not a minor bump.
+#[test]
+fn is_minor_bump_patch_only_is_false() {
+    assert!(!is_minor_bump("22.1.0", "22.1.5"));
+}
+
+/// Minor downgrade → not a minor bump.
+#[test]
+fn is_minor_bump_downgrade_is_false() {
+    assert!(!is_minor_bump("22.2.0", "22.1.0"));
+}
+
+/// Cross-major → not a minor bump.
+#[test]
+fn is_minor_bump_cross_major_is_false() {
+    assert!(!is_minor_bump("22.0.0", "23.1.0"));
+}
+
+// ── validate_wasm_hash ────────────────────────────────────────────────────────
+
+#[test]
+fn compatibility_major_downgrade_requires_migration() {
+    let env = make_env();
+    assert_eq!(
+        assess_compatibility(&env, "23.0.0", "22.0.0"),
+        CompatibilityStatus::RequiresMigration
+    );
+}
+
+/// Malformed (no dots) but non-empty → both parse to major 0 → Compatible.
+#[test]
+fn compatibility_malformed_non_empty_parses_as_zero_major() {
+    let env = make_env();
+    assert_eq!(
+        assess_compatibility(&env, "invalid", "also-invalid"),
+        CompatibilityStatus::Compatible
+    );
+}
+
+/// One valid, one malformed → major mismatch → RequiresMigration.
+#[test]
+fn compatibility_one_malformed_requires_migration() {
+    let env = make_env();
+    assert_eq!(
+        assess_compatibility(&env, "22.0.0", "invalid"),
+        CompatibilityStatus::RequiresMigration
+    );
+}
+
+/// Edge case: empty `from_version` → Incompatible (not silently major-0).
 #[test]
 fn compatibility_empty_from_version_is_incompatible() {
     let env = make_env();
@@ -262,6 +410,12 @@ fn clamp_page_size_enforces_bounds() {
 
 // ── pagination_window ─────────────────────────────────────────────────────────
 
+    assert_eq!(clamp_page_size(FRONTEND_PAGE_SIZE_MAX + 1), FRONTEND_PAGE_SIZE_MAX);
+    assert_eq!(clamp_page_size(u32::MAX), FRONTEND_PAGE_SIZE_MAX);
+}
+
+// ── pagination_window ─────────────────────────────────────────────────────────
+
 #[test]
 fn pagination_window_uses_clamped_limit() {
     let window = pagination_window(20, 1_000);
@@ -286,6 +440,11 @@ fn pagination_window_offset_at_max_does_not_overflow() {
 }
 
 /// Zero requested limit → clamped to FRONTEND_PAGE_SIZE_MIN.
+    // Verify saturating_add does not wrap: u32::MAX + 50 saturates to u32::MAX.
+    assert_eq!(window.start.saturating_add(window.limit), u32::MAX);
+}
+
+/// Zero requested limit → clamped to FRONTEND_PAGE_SIZE_MIN.
 #[test]
 fn pagination_window_zero_limit_clamped_to_min() {
     let window = pagination_window(5, 0);
@@ -296,6 +455,24 @@ fn pagination_window_zero_limit_clamped_to_min() {
 
 #[test]
 fn upgrade_note_validation_accepts_short_note() {
+    let env = make_env();
+    let ok = String::from_str(&env, "ok");
+    assert!(validate_upgrade_note(&ok));
+}
+
+/// Exact boundary (len == UPGRADE_NOTE_MAX_LEN) → valid.
+#[test]
+fn upgrade_note_validation_exact_boundary_is_valid() {
+    let env = make_env();
+    let exact = make_string(&env, UPGRADE_NOTE_MAX_LEN, b'a');
+    assert!(validate_upgrade_note(&exact));
+}
+
+/// One byte over the boundary → invalid.
+#[test]
+fn upgrade_note_validation_one_over_boundary_is_invalid() {
+    let env = make_env();
+fn upgrade_note_validation_bounds() {
     let env = make_env();
     let ok = String::from_str(&env, "ok");
     assert!(validate_upgrade_note(&ok));
@@ -459,6 +636,113 @@ fn emit_ping_event_multiple_callers() {
     let b = Address::generate(&env);
     emit_ping_event(&env, a, 1_i32);
     emit_ping_event(&env, b, 2_i32);
+}
+
+// ── Integration: safe vs unsafe upgrade paths ─────────────────────────────────
+
+/// Safe path: same major, valid hash, is a minor bump.
+#[test]
+fn safe_upgrade_path_all_checks_pass() {
+    let env = make_env();
+    let mut bytes = [0u8; 32];
+    bytes[0] = 0xAB;
+    let hash = BytesN::from_array(&env, &bytes);
+
+    assert_eq!(
+        assess_compatibility(&env, "22.0.0", "22.1.0"),
+        CompatibilityStatus::Compatible
+    );
+    assert!(validate_wasm_hash(&hash));
+    assert!(is_minor_bump("22.0.0", "22.1.0"));
+}
+
+/// Unsafe path: cross-major + zero hash.
+#[test]
+fn unsafe_upgrade_path_all_checks_fail() {
+    let env = make_env();
+    let hash = BytesN::from_array(&env, &[0u8; 32]);
+
+    assert_eq!(
+        assess_compatibility(&env, "22.0.0", "23.0.0"),
+        CompatibilityStatus::RequiresMigration
+    );
+    assert!(!validate_wasm_hash(&hash));
+    assert!(!is_minor_bump("22.0.0", "23.0.0"));
+}
+
+/// Partial failure: compatible versions but zero hash.
+#[test]
+fn compatible_versions_but_zero_hash_fails() {
+    let env = make_env();
+    let hash = BytesN::from_array(&env, &[0u8; 32]);
+
+    assert_eq!(
+        assess_compatibility(&env, "22.0.0", "22.1.0"),
+        CompatibilityStatus::Compatible
+    );
+    assert!(!validate_wasm_hash(&hash));
+}
+
+/// Partial failure: valid hash but empty version string.
+#[test]
+fn valid_hash_but_empty_version_is_incompatible() {
+    let env = make_env();
+    let mut bytes = [0u8; 32];
+    bytes[0] = 1;
+    let hash = BytesN::from_array(&env, &bytes);
+
+    assert_eq!(
+        assess_compatibility(&env, "", "22.1.0"),
+        CompatibilityStatus::Incompatible
+    );
+    assert!(validate_wasm_hash(&hash));
+}
+
+/// Full safe-upgrade flow: build record, assess, validate hash, emit event.
+#[test]
+fn full_safe_upgrade_flow() {
+    let env = make_env();
+    let reviewer = Address::generate(&env);
+
+    // 1. Build a change record for the register API change.
+    let record = build_sdk_change_record(
+        &env,
+        "register_api",
+        false,
+        String::from_str(&env, "env.register(Contract, ()) replaces register_contract"),
+    );
+    assert!(!record.is_breaking);
+
+    // 2. Assess compatibility.
+    assert_eq!(
+        assess_compatibility(&env, "22.0.0", "22.1.0"),
+        CompatibilityStatus::Compatible
+    );
+
+    // 3. Validate WASM hash.
+    let mut bytes = [0u8; 32];
+    bytes[0] = 0xDE;
+    let hash = BytesN::from_array(&env, &bytes);
+    assert!(validate_wasm_hash(&hash));
+
+    // 4. Emit audit event with note.
+    emit_upgrade_audit_event_with_note(
+        &env,
+        String::from_str(&env, "22.0.0"),
+        String::from_str(&env, "22.1.0"),
+        reviewer,
+        String::from_str(&env, "all checks passed"),
+#[test]
+fn emit_audit_event_with_note_exact_boundary_does_not_panic() {
+    let env = make_env();
+    let exact = make_string(&env, UPGRADE_NOTE_MAX_LEN, b'n');
+    emit_upgrade_audit_event_with_note(
+        &env,
+        String::from_str(&env, "22.0.0"),
+        String::from_str(&env, "22.1.0"),
+        Address::generate(&env),
+        exact,
+    );
 }
 
 // ── Integration: safe vs unsafe upgrade paths ─────────────────────────────────

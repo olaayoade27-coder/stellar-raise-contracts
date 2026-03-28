@@ -51,3 +51,5 @@ The test coverage focuses strictly on:
 5. `useHeaderResponsive` browser and SSR-equivalent paths.
 
 Ensure coverage commands exceed 95% threshold natively. Current coverage: **98%+ statements/lines**, **93 tests passing**.
+3. Verification that callbacks accurately dispatch parameters. 
+Ensure coverage commands exceed 95% threshold natively.

@@ -1,5 +1,14 @@
 use crate::{FactoryContract, FactoryContractClient};
 use soroban_sdk::{testutils::Address as _, token, Address, Env};
+#![cfg(test)]
+#![allow(clippy::too_many_arguments)]
+
+use crate::{FactoryContract, FactoryContractClient};
+use soroban_sdk::{testutils::Address as _, token, Address, Env};
+use soroban_sdk::{
+    testutils::Address as _,
+    token, Address, Env,
+};
 
 extern crate std;
 
@@ -13,6 +22,29 @@ fn create_token_contract<'a>(
     env: &Env,
     admin: &Address,
 ) -> (Address, token::StellarAssetClient<'a>) {
+mod crowdfund_wasm {
+    soroban_sdk::contractimport!(file = "wasm/crowdfund.wasm");
+    soroban_sdk::contractimport!(
+        file = "../wasm/crowdfund.wasm"
+    );
+    soroban_sdk::contractimport!(file = "../wasm/crowdfund.wasm");
+    soroban_sdk::contractimport!(file = "../../target/wasm32-unknown-unknown/release/crowdfund.wasm");
+    soroban_sdk::contractimport!(
+        file = "../../contracts/factory/wasm/crowdfund.wasm"
+    );
+    soroban_sdk::contractimport!(file = "../../contracts/factory/wasm/crowdfund.wasm");
+}
+
+fn create_token_contract<'a>(
+    env: &Env,
+    admin: &Address,
+) -> (Address, token::StellarAssetClient<'a>) {
+    soroban_sdk::contractimport!(
+        file = "../../target/wasm32v1-none/release/crowdfund.wasm"
+    );
+}
+
+fn create_token_contract<'a>(env: &Env, admin: &Address) -> (Address, token::StellarAssetClient<'a>) {
     let token_contract_id = env.register_stellar_asset_contract_v2(admin.clone());
     let token_address = token_contract_id.address();
     let token_client = token::StellarAssetClient::new(env, &token_address);
@@ -40,6 +72,13 @@ fn test_create_single_campaign() {
 
     let campaign_addr =
         factory.create_campaign(&creator, &token_address, &goal, &deadline, &wasm_hash);
+    let campaign_addr = factory.create_campaign(
+        &creator,
+        &token_address,
+        &goal,
+        &deadline,
+        &wasm_hash,
+    );
 
     // Verify campaign was added to registry.
     let campaigns = factory.campaigns();
@@ -77,6 +116,34 @@ fn test_create_multiple_campaigns() {
 
     let campaign3 =
         factory.create_campaign(&creator3, &token_address, &3000i128, &300u64, &wasm_hash);
+    let campaign1 = factory.create_campaign(
+        &creator1,
+        &token_address,
+        &1000i128,
+        &100u64,
+        &wasm_hash,
+    );
+
+    let campaign2 =
+        factory.create_campaign(&creator2, &token_address, &2000i128, &200u64, &wasm_hash);
+
+    let campaign3 =
+        factory.create_campaign(&creator3, &token_address, &3000i128, &300u64, &wasm_hash);
+    let campaign2 = factory.create_campaign(
+        &creator2,
+        &token_address,
+        &2000i128,
+        &200u64,
+        &wasm_hash,
+    );
+
+    let campaign3 = factory.create_campaign(
+        &creator3,
+        &token_address,
+        &3000i128,
+        &300u64,
+        &wasm_hash,
+    );
 
     // Verify all campaigns are in registry.
     let campaigns = factory.campaigns();
@@ -88,6 +155,7 @@ fn test_create_multiple_campaigns() {
     // Verify count.
     assert_eq!(factory.campaign_count(), 3);
 }
+use soroban_sdk::Env;
 
 #[test]
 fn test_empty_registry() {
@@ -96,6 +164,7 @@ fn test_empty_registry() {
     let factory_id = env.register(FactoryContract, ());
     let factory = FactoryContractClient::new(&env, &factory_id);
 
+    // Verify empty state.
     let campaigns = factory.campaigns();
     assert_eq!(campaigns.len(), 0);
     assert_eq!(factory.campaign_count(), 0);
