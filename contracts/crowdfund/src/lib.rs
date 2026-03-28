@@ -28,6 +28,7 @@ pub mod soroban_sdk_minor;
 pub mod campaign_goal_minimum;
 pub mod contribute_error_handling;
 pub mod proptest_generator_boundary;
+pub mod security_compliance_monitoring;
 
 // --- Imports from Modules ---
 use refund_single_token::{
@@ -79,6 +80,10 @@ mod stellar_token_minter_test;
 #[cfg(test)]
 #[path = "admin_upgrade_mechanism.test.rs"]
 mod admin_upgrade_mechanism_test;
+
+#[cfg(test)]
+#[path = "security_compliance_monitoring.test.rs"]
+mod security_compliance_monitoring_test;
 
 // --- Constants ---
 const CONTRACT_VERSION: u32 = 3;
