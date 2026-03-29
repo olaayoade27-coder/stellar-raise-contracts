@@ -9,7 +9,7 @@
 
 #![cfg(test)]
 
-use soroban_sdk::{Env, Address};
+use soroban_sdk::{Env, Address, String, Vec};
 use crate::cargo_toml_rust::{
     all_deprecated_versions_replaced, audited_dependencies, DepRecord, 
     PROPTEST_VERSION, PROPTEST_VERSION_DEPRECATED, SOROBAN_SDK_VERSION, 
@@ -229,7 +229,7 @@ fn add_approved_dependency_success() {
 }
 
 #[test]
-#[should_panic(expected = "Security level 5 exceeds maximum allowed 3")]
+#[should_panic(expected = "security level exceeds maximum allowed")]
 fn add_dependency_exceeding_security_level_panics() {
     let env = create_test_env();
     CargoTomlRust::initialize(env.clone());

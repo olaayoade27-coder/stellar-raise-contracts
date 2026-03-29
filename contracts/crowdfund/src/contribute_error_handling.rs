@@ -40,13 +40,15 @@ pub mod error_codes {
     /// A checked arithmetic operation overflowed.
     pub const OVERFLOW: u32 = 6;
     /// `amount` was zero.
-    pub const ZERO_AMOUNT: u32 = 8;
+    pub const ZERO_AMOUNT: u32 = 13;
     /// `amount` was below `min_contribution`.
-    pub const BELOW_MINIMUM: u32 = 9;
+    pub const BELOW_MINIMUM: u32 = 14;
     /// Campaign status is not `Active`.
-    pub const CAMPAIGN_NOT_ACTIVE: u32 = 10;
-    /// `amount` was negative.
-    pub const NEGATIVE_AMOUNT: u32 = 11;
+    pub const CAMPAIGN_NOT_ACTIVE: u32 = 15;
+    /// `amount <= 0` or `amount < min_contribution`.
+    pub const AMOUNT_TOO_LOW: u32 = 16;
+    /// `amount` was negative (alias for AMOUNT_TOO_LOW).
+    pub const NEGATIVE_AMOUNT: u32 = 16;
 }
 
 /// Returns a human-readable description for a `contribute()` error code.
@@ -63,7 +65,7 @@ pub fn describe_error(code: u32) -> &'static str {
         error_codes::ZERO_AMOUNT => "Contribution amount must be greater than zero",
         error_codes::BELOW_MINIMUM => "Contribution amount is below the minimum required",
         error_codes::CAMPAIGN_NOT_ACTIVE => "Campaign is not active",
-        error_codes::NEGATIVE_AMOUNT => "Contribution amount must not be negative",
+        error_codes::AMOUNT_TOO_LOW => "Contribution amount is below the campaign minimum",
         _ => "Unknown error",
     }
 }
@@ -102,21 +104,29 @@ pub fn log_contribute_error(env: &soroban_sdk::Env, error: crate::ContractError)
             Symbol::new(env, "CampaignEnded"),
             error_codes::CAMPAIGN_ENDED,
         ),
-        crate::ContractError::Overflow => {
-            (Symbol::new(env, "Overflow"), error_codes::OVERFLOW)
-        }
-        crate::ContractError::ZeroAmount => {
-            (Symbol::new(env, "ZeroAmount"), error_codes::ZERO_AMOUNT)
-        }
-        crate::ContractError::BelowMinimum => {
-            (Symbol::new(env, "BelowMinimum"), error_codes::BELOW_MINIMUM)
-        }
+        crate::ContractError::Overflow => (
+            Symbol::new(env, "Overflow"), 
+            error_codes::OVERFLOW
+        ),
+        crate::ContractError::ZeroAmount => (
+            Symbol::new(env, "ZeroAmount"),
+            error_codes::ZERO_AMOUNT
+        ),
+        crate::ContractError::BelowMinimum => (
+            Symbol::new(env, "BelowMinimum"),
+            error_codes::BELOW_MINIMUM
+        ),
         crate::ContractError::CampaignNotActive => (
             Symbol::new(env, "CampaignNotActive"),
             error_codes::CAMPAIGN_NOT_ACTIVE,
         ),
-        _ => return, // non-contribute errors are not logged here
+        crate::ContractError::AmountTooLow => (
+            Symbol::new(env, "AmountTooLow"),
+            error_codes::AMOUNT_TOO_LOW
+        ),
+        _ => return,
     };
     env.events()
         .publish(("contribute_error", variant), code);
 }
+

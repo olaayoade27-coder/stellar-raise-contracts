@@ -36,7 +36,7 @@ impl SorobanSdkMinor {
         if env
             .storage()
             .instance()
-            .get::<Address>(&DataKey::Admin)
+            .get::<_, Address>(&DataKey::Admin)
             .is_some()
         {
             panic!("already initialized");
@@ -63,7 +63,7 @@ impl SorobanSdkMinor {
         from.require_auth();
         // use a short Symbol topic and a primitive payload which satisfy
         // the Soroban v22 bounds for events
-        env.events().publish((Symbol::short("ping"),), value);
+        env.events().publish((Symbol::new(&env, "ping"),), value);
     }
 
     /// @notice Returns the stored admin address.

@@ -514,7 +514,6 @@ fn test_refund_when_goal_reached_returns_error() {
     client.finalize(); // transitions to Succeeded
     client.refund_single(&contributor); // panics — not Expired
 }
-}
 
 // ── cancel ───────────────────────────────────────────────────────────────────
 

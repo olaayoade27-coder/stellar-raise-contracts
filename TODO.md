@@ -1,12 +1,33 @@
-# TODO: Review campaign goal minimum threshold enforcement for Testing (#408)
+# Task #409: Standardize contribute() Error Handling
 
-## Steps (in order):
+## Steps
 
-- [ ] 1. Update `contracts/crowdfund/src/campaign_goal_minimum.md`: Fix outdated constants (min=1), function names (initialize), test list, add progress_bps usage/security notes.
-- [ ] 2. Run targeted tests: `cd contracts/crowdfund && cargo test campaign_goal_minimum -- --nocapture`
-- [ ] 3. Run full suite + lints: `cd contracts/crowdfund && cargo test -p crowdfund -- --nocapture && cargo clippy && cargo fmt --check`
-- [ ] 4. Create git branch: `git checkout -b feature/review-campaign-goal-minimum-threshold-enforcement-for-testing`
-- [ ] 5. Commit changes: `git add . && git commit -m "feat: review-campaign-goal-minimum-threshold-enforcement-for-testing with docs update (closes #408)"`
-- [ ] 6. Push and create PR: `git push origin feature/review-campaign-goal-minimum-threshold-enforcement-for-testing && gh pr create --title "feat: implement review-campaign-goal-minimum-threshold-enforcement-for-testing with tests and docs" --body "Updates docs for accuracy. Code/tests already secure at 95%+ coverage."`
+### 1. [x] Create Git branch
+   git checkout -b feature/standardize-code-style-for-contribute-error-handling-for-smart-contract
 
-**Current: Step 1 pending**
+### 2. [x] Update lib.rs
+   - Add import contribute_error_handling ✓
+   - Insert log_contribute_error before each Err ✓
+   - Granular errors: ZeroAmount (==0), BelowMinimum (<min) ✓
+   - NatSpec comments ✓
+
+### 3. [x] Align contribute_error_handling.rs error_codes with ContractError repr ✓
+
+### 4. [] Enhance contribute_error_handling_tests.rs
+   - Granular test cases
+   - Live event verification
+
+### 5. [] Update contribute_error_handling.md
+   - Taxonomy table
+   - Integration notes
+
+### 6. [] Test: cargo test -p crowdfund
+   Target: 95%+ coverage, all pass
+
+### 7. [] Lint: cargo clippy
+
+### 8. [] Commit & PR
+   feat: implement standardize-code-style-for-contribute-error-handling-for-smart-contract with tests and docs
+
+---
+Progress tracked here. Core integration complete in lib.rs.

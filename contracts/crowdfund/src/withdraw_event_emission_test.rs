@@ -89,6 +89,7 @@ fn setup_with_nft(
         &None,
         &None,
         &None,
+        &None,
     );
 
     let nft_id = env.register(BoundedMockNft, ());
@@ -129,6 +130,7 @@ fn setup_no_nft(
         &contribution,
         &deadline,
         &1,
+        &None,
         &None,
         &None,
         &None,
@@ -186,6 +188,13 @@ fn first_event_data(env: &Env, t1: &str, t2: &str) -> Option<Val> {
                     .unwrap_or(false)
         })
         .map(|(_, _, data)| data)
+}
+
+/// Alias for `setup_with_nft` used by tests.
+fn setup(
+    contributor_count: u32,
+) -> (Env, CrowdfundContractClient<'static>, Address, Address, Address) {
+    setup_with_nft(contributor_count)
 }
 
 // ── NFT minting cap tests ────────────────────────────────────────────────────
@@ -371,6 +380,7 @@ fn test_withdrawn_event_payout_reflects_fee_deduction() {
         &Some(config),
         &None,
         &None,
+        &None,
     );
 
     let contributor = Address::generate(&env);
@@ -426,6 +436,7 @@ fn test_withdraw_emits_fee_transferred_event() {
         &None,
         &None,
         &None,
+        &None,
     );
 
     let contributor = Address::generate(&env);
@@ -444,7 +455,7 @@ fn test_withdraw_emits_fee_transferred_event() {
 
 /// No `fee_transferred` event when no platform fee is configured.
 #[test]
-fn test_withdraw_emits_withdrawn_event_once() {
+fn test_no_fee_transferred_event_without_platform_config() {
     let (env, client, _creator, _token, _nft_id) = setup(2);
     client.finalize();
     client.withdraw();
