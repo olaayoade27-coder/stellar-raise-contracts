@@ -39,6 +39,7 @@ pub mod state_compression;
 pub mod optimistic_execution;
 pub mod security_incident_response;
 pub mod data_availability_layer;
+pub mod plasma_chain;
 
 use crate::reentrancy_guard::{enter_transfer, exit_transfer, protected_transfer};
 
@@ -144,6 +145,9 @@ mod security_incident_response_test;
 #[cfg(test)]
 #[path = "data_availability_layer.test.rs"]
 mod data_availability_layer_test;
+#[cfg(test)]
+#[path = "plasma_chain.test.rs"]
+mod plasma_chain_test;
 
 // --- Constants ---
 const CONTRACT_VERSION: u32 = 3;
