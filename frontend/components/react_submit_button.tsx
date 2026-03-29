@@ -1,7 +1,8 @@
 /**
  * @notice Optimized React Submit Button for script execution and Stellar tx.
- * @dev Secure state machine prevents double-tx, sanitizes labels/script output, pending for scripts.
+ * @dev Refactored with custom hooks for state management, optimized dependencies, and improved security.
  * @custom:security No double-submit (inFlightRef), XSS-safe labels/output/txHash, isMounted guard.
+ * @custom:refactor Extracted state logic into useSubmitButtonState hook; optimized memoization; improved error handling.
  */
 
 import React, {
@@ -46,6 +47,8 @@ export interface ReactSubmitButtonProps {
   txHash?: string;
   /** Click handler. */
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  /** Error handler for failed operations. */
+  onError?: (error: Error) => void;
   /** CSS class. */
   className?: string;
   /** Element ID. */
@@ -79,7 +82,7 @@ export function submitButtonReducer(
 // ── Constants ──
 export const MAX_LABEL_LENGTH = 80;
 export const MAX_HASH_DISPLAY = 12;
-const CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/g;
+export const MAX_SCRIPT_OUTPUT_LENGTH = 40;
 
 export const DEFAULT_LABELS: Required<SubmitButtonLabels> = {
   idle: "Execute Script",
@@ -139,7 +142,7 @@ export function normalizeText(
 ): string {
   if (typeof candidate !== "string") return fallback;
   const cleaned = candidate
-    .replace(CONTROL_CHAR_RE, " ")
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return fallback;
@@ -164,7 +167,7 @@ export function isValidTransition(
   return from === to || ALLOWED_TRANSITIONS[from].includes(to);
 }
 
-/** Strict state resolver. */
+/** Strict state resolver with validation. */
 export function resolveSafeState(
   state: SubmitButtonState,
   prev?: SubmitButtonState,
@@ -174,7 +177,7 @@ export function resolveSafeState(
   return prev;
 }
 
-/** Blocks clicks? */
+/** Blocks interaction? */
 export function isInteractionBlocked(
   state: SubmitButtonState,
   disabled = false,
@@ -187,12 +190,142 @@ export function isInteractionBlocked(
   );
 }
 
-/** ARIA busy? */
+/** Is state busy? */
 export function isBusy(
   state: SubmitButtonState,
   localPending = false
 ): boolean {
   return state === "pending" || localPending;
+}
+
+/** Checks if transition is allowed for strict mode. */
+export function validateStateTransition(
+  current: SubmitButtonState,
+  next: SubmitButtonState,
+  previous?: SubmitButtonState,
+  strictMode = true
+): { valid: boolean; resolvedState: SubmitButtonState } {
+  if (!strictMode || !previous) {
+    return { valid: true, resolvedState: next };
+  }
+  const valid = isValidTransition(previous, next);
+  return { valid, resolvedState: valid ? next : previous };
+}
+
+// ── Custom Hooks ──
+
+/**
+ * @dev Manages internal pending state for async operations.
+ * Provides a reducer-based interface for controlling the button's local pending state.
+ *
+ * @returns An object containing the pending state and dispatch function.
+ */
+export function useLocalPendingState() {
+  const [{ isPending }, dispatch] = useReducer(submitButtonReducer, {
+    isPending: false,
+  });
+
+  const startPending = useCallback(() => {
+    dispatch({ type: "START_PENDING" });
+  }, []);
+
+  const endPending = useCallback(() => {
+    dispatch({ type: "END_PENDING" });
+  }, []);
+
+  return { isPending, startPending, endPending };
+}
+
+/**
+ * @dev Custom hook for managing submit button state and transitions.
+ * Combines external state, previous state, and strict mode validation.
+ *
+ * @param state The external button state
+ * @param previousState Optional previous state for validation
+ * @param strictTransitions Whether to validate transitions strictly
+ * @returns The resolved safe state
+ */
+export function useSubmitButtonState(
+  state: SubmitButtonState,
+  previousState?: SubmitButtonState,
+  strictTransitions = true
+): SubmitButtonState {
+  return useMemo(
+    () => resolveSafeState(state, previousState, strictTransitions),
+    [state, previousState, strictTransitions]
+  );
+}
+
+/**
+ * @dev Custom hook for resolving button label with memoization.
+ * Combines state and custom labels to produce the final button text.
+ *
+ * @param state The button state
+ * @param labels Optional custom labels per state
+ * @returns The resolved, sanitized label for display
+ */
+export function useSubmitButtonLabel(
+  state: SubmitButtonState,
+  labels?: SubmitButtonLabels
+): string {
+  return useMemo(() => resolveLabel(state, labels), [state, labels]);
+}
+
+/**
+ * @dev Custom hook for computing subtext from txHash or scriptOutput.
+ * Sanitizes and truncates output appropriately.
+ *
+ * @param txHash Optional transaction hash
+ * @param scriptOutput Optional script output
+ * @returns Formatted subtext for display
+ */
+export function useSubmitButtonSubtext(
+  txHash?: string,
+  scriptOutput?: unknown
+): string {
+  return useMemo(() => {
+    let text = "";
+    if (txHash) text = `Tx: …${txHash.slice(-MAX_HASH_DISPLAY)}`;
+    else if (scriptOutput)
+      text = normalizeText(scriptOutput, "Script output", MAX_SCRIPT_OUTPUT_LENGTH);
+    return text ? `(${text})` : "";
+  }, [txHash, scriptOutput]);
+}
+
+/**
+ * @dev Custom hook for computing interaction state.
+ * Determines if the button can be interacted with.
+ *
+ * @param state The button state
+ * @param disabled External disabled prop
+ * @param localPending Internal pending state
+ * @returns Boolean indicating if interaction is blocked
+ */
+export function useSubmitButtonInteractionState(
+  state: SubmitButtonState,
+  disabled?: boolean,
+  localPending = false
+): boolean {
+  return useMemo(
+    () => isInteractionBlocked(state, disabled, localPending),
+    [state, disabled, localPending]
+  );
+}
+
+/**
+ * @dev Custom hook for computing button styles.
+ * Merges base styles with state-specific styles.
+ *
+ * @param state The button state
+ * @returns Computed styles for the button
+ */
+export function useSubmitButtonStyles(
+  state: SubmitButtonState
+): React.CSSProperties {
+  return useMemo(
+    () => ({ ...BASE_STYLE, ...STATE_STYLES[state] }),
+    [state]
+  );
 }
 
 // ── Component ──
@@ -204,15 +337,13 @@ const ReactSubmitButton: React.FC<ReactSubmitButtonProps> = ({
   scriptOutput,
   txHash,
   onClick,
+  onError,
   className = "",
   id,
   type = "button",
   disabled,
 }) => {
-  const [{ isPending: localPending }, dispatch] = useReducer(
-    submitButtonReducer,
-    { isPending: false }
-  );
+  const { isPending: localPending, startPending, endPending } = useLocalPendingState();
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -223,51 +354,35 @@ const ReactSubmitButton: React.FC<ReactSubmitButtonProps> = ({
     };
   }, []);
 
-  const resolvedState = useMemo(
-    () => resolveSafeState(state, previousState, strictTransitions),
-    [state, previousState, strictTransitions]
-  );
-
-  const label = useMemo(
-    () => resolveLabel(resolvedState, labels),
-    [resolvedState, labels]
-  );
-
-  const subtext = useMemo(() => {
-    let text = "";
-    if (txHash) text = `Tx: …${txHash.slice(-MAX_HASH_DISPLAY)}`;
-    else if (scriptOutput)
-      text = normalizeText(scriptOutput, "Script output", 40);
-    return text ? `(${text})` : "";
-  }, [txHash, scriptOutput]);
-
-  const blocked = useMemo(
-    () => isInteractionBlocked(resolvedState, disabled, localPending),
-    [resolvedState, disabled, localPending]
-  );
-
+  const resolvedState = useSubmitButtonState(state, previousState, strictTransitions);
+  const label = useSubmitButtonLabel(resolvedState, labels);
+  const subtext = useSubmitButtonSubtext(txHash, scriptOutput);
+  const blocked = useSubmitButtonInteractionState(resolvedState, disabled, localPending);
   const ariaBusy = isBusy(resolvedState, localPending);
+  const style = useSubmitButtonStyles(resolvedState);
 
   const handleClick = useCallback(
     async (e: MouseEvent<HTMLButtonElement>) => {
       if (inFlightRef.current || blocked || !onClick) return;
+      
       inFlightRef.current = true;
-      dispatch({ type: "START_PENDING" });
+      startPending();
+      
       try {
         await Promise.resolve(onClick(e));
-      } catch {
-        // Caller handles errors.
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        if (onError) {
+          onError(err);
+        }
       } finally {
         inFlightRef.current = false;
-        if (mountedRef.current) dispatch({ type: "END_PENDING" });
+        if (mountedRef.current) {
+          endPending();
+        }
       }
     },
-    [blocked, onClick]
-  );
-
-  const style = useMemo(
-    () => ({ ...BASE_STYLE, ...STATE_STYLES[resolvedState] }),
-    [resolvedState]
+    [blocked, onClick, onError, startPending, endPending]
   );
 
   return (
