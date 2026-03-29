@@ -1,155 +1,239 @@
-//! # Contract State Size Limits
+//! Contract State Size Limits
 //!
-//! This module enforces upper-bound limits on the size of unbounded collections
-//! stored in contract state to prevent:
+//! @title   ContractStateSize — On-chain size-limit constants and enforcement helpers.
+//! @notice  Defines upper bounds for every unbounded collection and user-supplied
+//!          string stored in the crowdfund contract's ledger state.
+//! @dev     All `check_*` helpers follow a checks-before-effects pattern: they
+//!          read current state and return a typed `StateSizeError` **before** any
+//!          mutation occurs in the calling function.
 //!
-//! - **DoS via state bloat**: an attacker flooding the contributors or roadmap
-//!   lists until operations become too expensive to execute.
-//! - **Gas exhaustion**: iteration over an unbounded `Vec` in `withdraw`,
-//!   `refund`, or `collect_pledges` can exceed Soroban resource limits.
-//! - **Ledger entry size violations**: Soroban enforces a hard cap on the
-//!   serialised size of each ledger entry; exceeding it causes a host panic.
+//! ## Security Rationale
 //!
-//! ## Security Assumptions
+//! Without these limits an adversary could:
+//! - Flood `Contributors` / `Pledgers` until iteration in `withdraw` / `refund` /
+//!   `collect_pledges` exceeds Soroban's per-transaction resource budget.
+//! - Supply oversized `String` values that push a ledger entry past the host's
+//!   hard serialisation cap, causing a host panic.
 //!
-//! 1. `MAX_CONTRIBUTORS` caps the `Contributors` and `Pledgers` persistent
-//!    lists.  Any `contribute` or `pledge` call that would push the list past
-//!    this limit is rejected with [`ContractError::StateSizeLimitExceeded`].
-//! 2. `MAX_ROADMAP_ITEMS` caps the `Roadmap` instance list.
-//! 3. `MAX_STRING_LEN` caps every user-supplied `String` field (title,
-//!    description, social links, roadmap description) to prevent oversized
-//!    ledger entries.
-//! 4. `MAX_STRETCH_GOALS` caps the `StretchGoals` list.
+//! ## Limits
 //!
-//! ## Limits (rationale)
-//!
-//! | Constant              | Value | Rationale                                      |
-//! |-----------------------|-------|------------------------------------------------|
-//! | `MAX_CONTRIBUTORS`    | 1 000 | Keeps `withdraw` / `refund` batch within gas   |
-//! | `MAX_ROADMAP_ITEMS`   |    20 | Cosmetic list; no operational iteration needed |
-//! | `MAX_STRETCH_GOALS`   |    10 | Small advisory list                            |
-//! | `MAX_STRING_LEN`      |   256 | Prevents oversized instance-storage entries    |
+//! | Constant            | Value | Applies to                                      |
+//! |---------------------|-------|-------------------------------------------------|
+//! | `MAX_CONTRIBUTORS`  |   128 | `Contributors` list, `Pledgers` list            |
+//! | `MAX_ROADMAP_ITEMS` |    32 | `Roadmap` list (`add_roadmap_item`)             |
+//! | `MAX_STRETCH_GOALS` |    32 | `StretchGoals` list (`add_stretch_goal`)        |
+//! | `MAX_STRING_LEN`    |   256 | title, description, social links, roadmap desc  |
 
-#![allow(missing_docs)]
+use soroban_sdk::{contract, contractimpl, contracterror, Env, String, Vec};
 
-use soroban_sdk::{contracterror, Env, String, Vec};
+// ── Error type ────────────────────────────────────────────────────────────────
 
-use crate::DataKey;
-
-// ── Limits ───────────────────────────────────────────────────────────────────
-
-/// Maximum number of unique contributors (and pledgers) tracked on-chain.
-pub const MAX_CONTRIBUTORS: u32 = 1_000;
-
-/// Maximum number of roadmap items stored in instance storage.
-pub const MAX_ROADMAP_ITEMS: u32 = 20;
-
-/// Maximum number of stretch-goal milestones.
-pub const MAX_STRETCH_GOALS: u32 = 10;
-
-/// Maximum byte length of any user-supplied `String` field.
-pub const MAX_STRING_LEN: u32 = 256;
-
-// ── Error ─────────────────────────────────────────────────────────────────────
-
-/// Returned when a state-size limit would be exceeded.
+/// Typed errors returned by state-size enforcement helpers.
 ///
-/// @notice Callers should treat this as a permanent rejection for the current
-///         campaign state; the limit will not change without a contract upgrade.
+/// @dev Discriminants start at 100 to avoid collisions with `ContractError` (1–17).
+///      Do **not** renumber these — they are stable across contract upgrades.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum StateSizeError {
-    /// The contributors / pledgers list is full.
+    /// The `Contributors` or `Pledgers` list has reached `MAX_CONTRIBUTORS`.
     ContributorLimitExceeded = 100,
-    /// The roadmap list is full.
+    /// The `Roadmap` list has reached `MAX_ROADMAP_ITEMS`.
     RoadmapLimitExceeded = 101,
-    /// The stretch-goals list is full.
+    /// The `StretchGoals` list has reached `MAX_STRETCH_GOALS`.
     StretchGoalLimitExceeded = 102,
     /// A string field exceeds `MAX_STRING_LEN` bytes.
     StringTooLong = 103,
 }
 
-// ── Validation helpers ────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-/// Assert that `s` does not exceed [`MAX_STRING_LEN`] bytes.
-///
-/// @param s The string to validate.
-/// @return `Ok(())` when within limits, `Err(StateSizeError::StringTooLong)` otherwise.
+/// Maximum number of unique contributors (and pledgers) tracked per campaign.
+pub const MAX_CONTRIBUTORS: u32 = 128;
+
+/// Maximum number of roadmap milestones stored per campaign.
+pub const MAX_ROADMAP_ITEMS: u32 = 32;
+
+/// Maximum number of stretch-goal milestones stored per campaign.
+pub const MAX_STRETCH_GOALS: u32 = 32;
+
+/// Maximum byte length for any user-supplied string field.
+pub const MAX_STRING_LEN: u32 = 256;
+
+// ── Standalone helpers (called from lib.rs) ───────────────────────────────────
+
+/// Returns `Ok(())` if `s.len() <= MAX_STRING_LEN`, else `Err(StateSizeError::StringTooLong)`.
+#[inline]
 pub fn check_string_len(s: &String) -> Result<(), StateSizeError> {
     if s.len() > MAX_STRING_LEN {
-        return Err(StateSizeError::StringTooLong);
+        Err(StateSizeError::StringTooLong)
+    } else {
+        Ok(())
     }
-    Ok(())
 }
 
-/// Assert that adding one more entry to the `Contributors` list is allowed.
-///
-/// Reads the current list length from persistent storage and compares it
-/// against [`MAX_CONTRIBUTORS`].
-///
-/// @param env Soroban environment reference.
-/// @return `Ok(())` when within limits, `Err(StateSizeError::ContributorLimitExceeded)` otherwise.
+/// Returns `Ok(())` if `count < MAX_CONTRIBUTORS`, else `Err(ContributorLimitExceeded)`.
+#[inline]
+pub fn validate_contributor_capacity(count: u32) -> Result<(), StateSizeError> {
+    if count >= MAX_CONTRIBUTORS {
+        Err(StateSizeError::ContributorLimitExceeded)
+    } else {
+        Ok(())
+    }
+}
+
+/// Reads the `Contributors` list length from persistent storage and enforces the cap.
+#[inline]
 pub fn check_contributor_limit(env: &Env) -> Result<(), StateSizeError> {
-    let contributors: Vec<soroban_sdk::Address> = env
+    let count: u32 = env
         .storage()
         .persistent()
-        .get(&DataKey::Contributors)
-        .unwrap_or_else(|| Vec::new(env));
-
-    if contributors.len() >= MAX_CONTRIBUTORS {
-        return Err(StateSizeError::ContributorLimitExceeded);
-    }
-    Ok(())
+        .get::<_, Vec<soroban_sdk::Address>>(&crate::DataKey::Contributors)
+        .map(|v| v.len())
+        .unwrap_or(0);
+    validate_contributor_capacity(count)
 }
 
-/// Assert that adding one more entry to the `Pledgers` list is allowed.
-///
-/// @param env Soroban environment reference.
-/// @return `Ok(())` when within limits, `Err(StateSizeError::ContributorLimitExceeded)` otherwise.
+/// Returns `Ok(())` if `count < MAX_CONTRIBUTORS`, else `Err(ContributorLimitExceeded)`.
+#[inline]
+pub fn validate_pledger_capacity(count: u32) -> Result<(), StateSizeError> {
+    validate_contributor_capacity(count)
+}
+
+/// Reads the `Pledgers` list length from persistent storage and enforces the cap.
+#[inline]
 pub fn check_pledger_limit(env: &Env) -> Result<(), StateSizeError> {
-    let pledgers: Vec<soroban_sdk::Address> = env
+    let count: u32 = env
         .storage()
         .persistent()
-        .get(&DataKey::Pledgers)
-        .unwrap_or_else(|| Vec::new(env));
-
-    if pledgers.len() >= MAX_CONTRIBUTORS {
-        return Err(StateSizeError::ContributorLimitExceeded);
-    }
-    Ok(())
+        .get::<_, Vec<soroban_sdk::Address>>(&crate::DataKey::Pledgers)
+        .map(|v| v.len())
+        .unwrap_or(0);
+    validate_contributor_capacity(count)
 }
 
-/// Assert that adding one more item to the `Roadmap` list is allowed.
-///
-/// @param env Soroban environment reference.
-/// @return `Ok(())` when within limits, `Err(StateSizeError::RoadmapLimitExceeded)` otherwise.
+/// Returns `Ok(())` if `count < MAX_ROADMAP_ITEMS`, else `Err(RoadmapLimitExceeded)`.
+#[inline]
+pub fn validate_roadmap_capacity(count: u32) -> Result<(), StateSizeError> {
+    if count >= MAX_ROADMAP_ITEMS {
+        Err(StateSizeError::RoadmapLimitExceeded)
+    } else {
+        Ok(())
+    }
+}
+
+/// Reads the `Roadmap` list length from instance storage and enforces the cap.
+#[inline]
 pub fn check_roadmap_limit(env: &Env) -> Result<(), StateSizeError> {
-    let roadmap: Vec<crate::RoadmapItem> = env
+    let count: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::Roadmap)
-        .unwrap_or_else(|| Vec::new(env));
-
-    if roadmap.len() >= MAX_ROADMAP_ITEMS {
-        return Err(StateSizeError::RoadmapLimitExceeded);
-    }
-    Ok(())
+        .get::<_, Vec<crate::RoadmapItem>>(&crate::DataKey::Roadmap)
+        .map(|v| v.len())
+        .unwrap_or(0);
+    validate_roadmap_capacity(count)
 }
 
-/// Assert that adding one more stretch goal is allowed.
-///
-/// @param env Soroban environment reference.
-/// @return `Ok(())` when within limits, `Err(StateSizeError::StretchGoalLimitExceeded)` otherwise.
+/// Validates a roadmap item description length (delegates to `check_string_len`).
+#[inline]
+pub fn validate_roadmap_description(desc: &String) -> Result<(), StateSizeError> {
+    check_string_len(desc)
+}
+
+/// Returns `Ok(())` if `count < MAX_STRETCH_GOALS`, else `Err(StretchGoalLimitExceeded)`.
+#[inline]
+pub fn validate_stretch_goal_capacity(count: u32) -> Result<(), StateSizeError> {
+    if count >= MAX_STRETCH_GOALS {
+        Err(StateSizeError::StretchGoalLimitExceeded)
+    } else {
+        Ok(())
+    }
+}
+
+/// Reads the `StretchGoals` list length from instance storage and enforces the cap.
+#[inline]
 pub fn check_stretch_goal_limit(env: &Env) -> Result<(), StateSizeError> {
-    let goals: Vec<i128> = env
+    let count: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::StretchGoals)
-        .unwrap_or_else(|| Vec::new(env));
+        .get::<_, Vec<i128>>(&crate::DataKey::StretchGoals)
+        .map(|v| v.len())
+        .unwrap_or(0);
+    validate_stretch_goal_capacity(count)
+}
 
-    if goals.len() >= MAX_STRETCH_GOALS {
-        return Err(StateSizeError::StretchGoalLimitExceeded);
+/// Validates a title string length.
+#[inline]
+pub fn validate_title(title: &String) -> Result<(), StateSizeError> {
+    check_string_len(title)
+}
+
+/// Validates a description string length.
+#[inline]
+pub fn validate_description(desc: &String) -> Result<(), StateSizeError> {
+    check_string_len(desc)
+}
+
+/// Validates a social-links string length.
+#[inline]
+pub fn validate_social_links(links: &String) -> Result<(), StateSizeError> {
+    check_string_len(links)
+}
+
+/// Validates the aggregate metadata length across title, description, and social links.
+///
+/// @param title_len       Byte length of the title field.
+/// @param description_len Byte length of the description field.
+/// @param socials_len     Byte length of the social-links field.
+/// @return `Ok(())` if the sum is within the aggregate limit.
+#[inline]
+pub fn validate_metadata_total_length(
+    title_len: u32,
+    description_len: u32,
+    socials_len: u32,
+) -> Result<(), StateSizeError> {
+    const AGGREGATE_LIMIT: u32 = MAX_STRING_LEN * 3;
+    if title_len.saturating_add(description_len).saturating_add(socials_len) > AGGREGATE_LIMIT {
+        Err(StateSizeError::StringTooLong)
+    } else {
+        Ok(())
     }
-    Ok(())
+}
+
+// ── Standalone contract (exposes constants on-chain) ─────────────────────────
+
+/// On-chain contract that exposes state-size constants and validation functions.
+///
+/// @notice Frontend UIs can call these view functions to retrieve the current
+///         limits without hard-coding them, ensuring UI validation stays in sync
+///         with the contract after upgrades.
+#[contract]
+pub struct ContractStateSize;
+
+#[contractimpl]
+impl ContractStateSize {
+    /// Returns the maximum allowed byte length for any string field.
+    pub fn max_string_len(_env: Env) -> u32 {
+        MAX_STRING_LEN
+    }
+
+    /// Returns the maximum number of contributors per campaign.
+    pub fn max_contributors(_env: Env) -> u32 {
+        MAX_CONTRIBUTORS
+    }
+
+    /// Returns the maximum number of roadmap items.
+    pub fn max_roadmap_items(_env: Env) -> u32 {
+        MAX_ROADMAP_ITEMS
+    }
+
+    /// Returns the maximum number of stretch goals.
+    pub fn max_stretch_goals(_env: Env) -> u32 {
+        MAX_STRETCH_GOALS
+    }
+
+    /// Returns `true` if `s.len() <= MAX_STRING_LEN`.
+    pub fn validate_string(_env: Env, s: String) -> bool {
+        s.len() <= MAX_STRING_LEN
+    }
 }
