@@ -33,6 +33,7 @@ pub mod security_compliance_automation;
 pub mod security_analytics;
 pub mod conditional_optimization;
 pub mod batch_processing_optimization;
+pub mod access_logging;
 
 pub mod parallel
 
@@ -116,6 +117,9 @@ mod security_analytics_test;
 mod conditional_optimization_test;
 #[path = "batch_processing_optimization.test.rs"]
 mod batch_processing_optimization_test;
+#[cfg(test)]
+#[path = "access_logging.test.rs"]
+mod access_logging_test;
 
 // --- Constants ---
 const CONTRACT_VERSION: u32 = 3;
