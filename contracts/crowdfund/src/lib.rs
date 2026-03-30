@@ -41,6 +41,8 @@ pub mod optimistic_execution;
 pub mod security_incident_response;
 pub mod data_availability_layer;
 pub mod security_regression;
+pub mod sidechain_integration;
+pub mod performance_profiling;
 
 use crate::reentrancy_guard::{enter_transfer, exit_transfer, protected_transfer};
 
@@ -160,6 +162,12 @@ mod data_availability_layer_test;
 #[cfg(test)]
 #[path = "security_regression.test.rs"]
 mod security_regression_test;
+#[cfg(test)]
+#[path = "sidechain_integration.test.rs"]
+mod sidechain_integration_test;
+#[cfg(test)]
+#[path = "performance_profiling.test.rs"]
+mod performance_profiling_test;
 
 // --- Constants ---
 const CONTRACT_VERSION: u32 = 3;
