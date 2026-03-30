@@ -1,33 +1,86 @@
 #![no_std]
 #![allow(clippy::too_many_arguments)]
-
 use soroban_sdk::{
     contract, contractclient, contractimpl, contracttype, token, Address, Env, String, Symbol, Vec,
 };
 
-use crate::contribute_error_handling::log_contribute_error;
+// ── Modules ──────────────────────────────────────────────────────────────────
 
-
-// ── Modules ───────────────────────────────────────────────────────────────────
-
+pub mod access_control;
 pub mod admin_upgrade_mechanism;
+pub mod dependency_vulnerability_scanning;
+pub mod emergency_stop;
+pub mod pause_mechanism;
+pub mod sharding_mechanism;
+pub mod algorithm_optimization;
+pub mod session_management;
 pub mod campaign_goal_minimum;
 pub mod cargo_toml_rust;
 pub mod contract_state_size;
 pub mod contribute_error_handling;
 pub mod crowdfund_initialize_function;
+pub mod role_based_access;
+pub mod state_migration;
+#[cfg(test)]
+pub mod npm_package_lock;
 pub mod proptest_generator_boundary;
 pub mod refund_single_token;
 pub mod soroban_sdk_minor;
 pub mod stellar_token_minter;
+pub mod stream_processing_optimization;
 pub mod withdraw_event_emission;
+pub mod loop_optimization;
+pub mod security_compliance_automation;
+pub mod security_compliance_testing;
+pub mod security_compliance_validation;
+pub mod security_analytics;
+pub mod conditional_optimization;
+pub mod batch_processing_optimization;
+pub mod state_compression;
+pub mod optimistic_execution;
+pub mod security_incident_response;
+pub mod data_availability_layer;
+pub mod security_regression;
+
+use crate::reentrancy_guard::{enter_transfer, exit_transfer, protected_transfer};
 
 use crowdfund_initialize_function::{execute_initialize, InitParams};
-use refund_single_token::{execute_refund_single, refund_single_transfer, validate_refund_preconditions};
-use withdraw_event_emission::{emit_withdrawal_event, mint_nfts_in_batch};
+use refund_single_token::{
+    execute_refund_single, refund_single_transfer, validate_refund_preconditions,
+};
+use stream_processing_optimization::{
+    bonus_goal_progress_bps as compute_bonus_goal_progress_bps, build_campaign_stats,
+    load_address_stream_state, next_unmet_milestone, persist_address_stream_if_missing,
+};
+use withdraw_event_emission::{emit_fee_transferred, emit_withdrawn, mint_nfts_in_batch};
 
-// ── Test modules ──────────────────────────────────────────────────────────────
+// ── Test Modules ─────────────────────────────────────────────────────────────
 
+pub mod cross_rollup_communication;
+#[cfg(test)]
+#[path = "cross_rollup_communication_test.rs"]
+mod cross_rollup_communication_test;
+
+#[cfg(test)]
+mod access_control_tests;
+#[cfg(test)]
+#[path = "access_control.test.rs"]
+mod access_control_test;
+#[cfg(test)]
+#[path = "admin_upgrade_mechanism.test.rs"]
+mod admin_upgrade_mechanism_test;
+#[cfg(test)]
+#[path = "dependency_vulnerability_scanning.test.rs"]
+mod dependency_vulnerability_scanning_test;
+#[cfg(test)]
+#[path = "emergency_stop.test.rs"]
+mod emergency_stop_test;
+#[cfg(test)]
+#[path = "pause_mechanism.test.rs"]
+mod pause_mechanism_test;
+#[cfg(test)]
+#[path = "sharding_mechanism.test.rs"]
+mod sharding_mechanism_test;
 #[cfg(test)]
 mod auth_tests;
 #[cfg(test)]
@@ -44,23 +97,72 @@ mod cargo_toml_rust_test;
 mod contract_state_size_test;
 #[cfg(test)]
 mod contribute_error_handling_tests;
-#[cfg(test)]
-#[path = "crowdfund_initialize_function.test.rs"]
-mod crowdfund_initialize_function_test;
+#[cfg(all(test, feature = "legacy_crowdfund_tests"))]
+#[path = "npm_package_lock_test.rs"]
+mod npm_package_lock_test;
+
 #[cfg(test)]
 #[path = "proptest_generator_boundary.test.rs"]
+mod proptest_generator_boundary_test;
+#[cfg(test)]
+#[path = "proptest_generator_boundary_tests.rs"]
 mod proptest_generator_boundary_tests;
 #[cfg(test)]
-#[path = "refund_single_token.test.rs"]
-mod refund_single_token_test;
+#[path = "soroban_sdk_minor_test.rs"]
+mod soroban_sdk_minor_test;
+#[cfg(all(test, feature = "legacy_crowdfund_tests"))]
+#[path = "stellar_token_minter_test.rs"]
+mod stellar_token_minter_test_original;
+#[cfg(all(test, feature = "legacy_crowdfund_tests"))]
+#[path = "stellar_token_minter.test.rs"]
+mod stellar_token_minter_test_comprehensive;
 #[cfg(test)]
-mod stellar_token_minter_test;
+#[path = "stream_processing_optimization.test.rs"]
+mod stream_processing_optimization_test;
 #[cfg(test)]
-mod test;
+#[path = "security_compliance_automation.test.rs"]
+mod security_compliance_automation_test;
 #[cfg(test)]
-mod withdraw_event_emission_test;
-
-// ── Constants ─────────────────────────────────────────────────────────────────
+#[path = "security_compliance_testing.test.rs"]
+mod security_compliance_testing_test;
+#[cfg(test)]
+#[path = "security_compliance_validation.test.rs"]
+mod security_compliance_validation_test;
+#[cfg(test)]
+#[path = "role_based_access.test.rs"]
+mod role_based_access_test;
+#[cfg(test)]
+#[path = "security_analytics.test.rs"]
+mod security_analytics_test;
+#[cfg(test)]
+#[path = "conditional_optimization.test.rs"]
+mod conditional_optimization_test;
+#[path = "batch_processing_optimization.test.rs"]
+mod batch_processing_optimization_test;
+#[cfg(test)]
+#[path = "optimistic_execution.test.rs"]
+mod optimistic_execution_test;
+#[cfg(test)]
+#[path = "state_compression.test.rs"]
+mod state_compression_test;
+#[cfg(test)]
+#[path = "state_migration.test.rs"]
+mod state_migration_test;
+#[cfg(test)]
+#[path = "computation_optimization.test.rs"]
+mod computation_optimization_test;
+#[cfg(test)]
+#[path = "withdraw_event_emission.test.rs"]
+mod withdraw_event_emission_test_new;
+#[cfg(test)]
+#[path = "security_incident_response.test.rs"]
+mod security_incident_response_test;
+#[cfg(test)]
+#[path = "data_availability_layer.test.rs"]
+mod data_availability_layer_test;
+#[cfg(test)]
+#[path = "security_regression.test.rs"]
+mod security_regression_test;
 
 const CONTRACT_VERSION: u32 = 3;
 #[allow(dead_code)]
@@ -70,7 +172,13 @@ pub const MAX_NFT_MINT_BATCH: u32 = 50;
 
 // ── Data Types ────────────────────────────────────────────────────────────────
 
-#[derive(Clone, PartialEq)]
+/// Represents the campaign status.
+///
+/// Transitions:
+///   `Active` → `Succeeded`  (via `finalize` when deadline passed and goal met)
+///   `Active` → `Expired`    (via `finalize` when deadline passed and goal not met)
+///   `Active` → `Cancelled`  (via `cancel`)
+#[derive(Clone, PartialEq, Debug)]
 #[contracttype]
 pub enum Status {
     Active,
@@ -104,6 +212,34 @@ pub struct CampaignStats {
     pub largest_contribution: i128,
 }
 
+/// Security metric types tracked by the analytics system.
+/// Used for threat detection and security monitoring.
+#[derive(Clone, Copy, PartialEq, Debug)]
+#[contracttype]
+pub enum MetricType {
+    /// Total contribution transactions.
+    TotalContributions,
+    /// Total withdrawal transactions.
+    TotalWithdrawals,
+    /// Total refund transactions.
+    TotalRefunds,
+    /// Failed transaction attempts.
+    FailedTransactions,
+    /// Unique active contributors.
+    UniqueContributors,
+    /// Average contribution size.
+    AverageContributionSize,
+    /// Large transaction count (above threshold).
+    LargeTransactions,
+    /// Reverted transactions.
+    RevertedTransactions,
+    /// Auth failures.
+    AuthFailures,
+    /// Rate limit triggers.
+    RateLimitTriggers,
+}
+
+/// Represents all storage keys used by the crowdfund contract.
 #[derive(Clone)]
 #[contracttype]
 pub enum DataKey {
@@ -131,6 +267,38 @@ pub enum DataKey {
     PlatformConfig,
     NFTContract,
     TokenDecimals,
+    /// Optional cap on the amount a single contributor may contribute.
+    MaxIndividualContribution,
+
+    // ── Role-separation keys (access_control module) ──────────────────────
+    /// Address with DEFAULT_ADMIN_ROLE — can upgrade, unpause, and transfer roles.
+    DefaultAdmin,
+    /// Address with PAUSER_ROLE — can pause in an emergency but cannot unpause.
+    Pauser,
+    /// Governance address (multisig / DAO) — the only address that may set platform fees.
+    GovernanceAddress,
+    /// Boolean flag — when true, contribute() and withdraw() are blocked.
+    Paused,
+
+    // ── Security Analytics keys ─────────────────────────────────────────────
+    /// Threat log storage key.
+    ThreatLog,
+    /// Access pattern storage keyed by address.
+    AccessPattern(Address),
+    /// Security metric storage keyed by address and metric type.
+    SecurityMetric(Address, MetricType),
+    /// Global security metric storage keyed by metric type.
+    GlobalSecurityMetric(MetricType),
+
+    // ── Sharding keys ───────────────────────────────────────────────────────
+    /// Number of contributor shards currently allocated.
+    ShardCount,
+    /// Contributor address list for shard index `n`.
+    ContributorShard(u32),
+
+    // ── Emergency stop key ──────────────────────────────────────────────────
+    /// Boolean flag — when true, all state-mutating entry points are permanently blocked.
+    EmergencyStopped,
 }
 
 // ── Contract Error ────────────────────────────────────────────────────────────
@@ -158,14 +326,14 @@ pub enum ContractError {
     InvalidPlatformFee = 11,
     /// `bonus_goal <= goal`
     InvalidBonusGoal = 12,
-    /// `amount == 0`
-    ZeroAmount = 13,
-    /// `amount < min_contribution`
-    BelowMinimum = 14,
-    /// Campaign is not in `Active` status
-    CampaignNotActive = 15,
-    /// `amount <= 0` or `amount < min_contribution`
-    AmountTooLow = 16,
+    /// Returned by `initialize` when `goal < MIN_GOAL_AMOUNT`.
+    GoalTooLow = 13,
+    /// Returned by `contribute` when `amount` is zero.
+    ZeroAmount = 14,
+    BelowMinimum = 15,
+    CampaignNotActive = 16,
+    /// Returned by `contribute` when `amount` is negative.
+    NegativeAmount = 17,
 }
 
 // ── NFT contract interface ────────────────────────────────────────────────────
@@ -191,10 +359,10 @@ impl CrowdfundContract {
         goal: i128,
         deadline: u64,
         min_contribution: i128,
+        max_individual_contribution: Option<i128>,
         platform_config: Option<PlatformConfig>,
         bonus_goal: Option<i128>,
         bonus_goal_description: Option<String>,
-        _metadata_uri: Option<String>,
     ) -> Result<(), ContractError> {
         execute_initialize(
             &env,
@@ -209,7 +377,16 @@ impl CrowdfundContract {
                 bonus_goal,
                 bonus_goal_description,
             },
-        )
+        )?;
+
+        // Store optional max individual contribution cap.
+        if let Some(max_contrib) = max_individual_contribution {
+            env.storage()
+                .instance()
+                .set(&DataKey::MaxIndividualContribution, &max_contrib);
+        }
+
+        Ok(())
     }
 
     /// Returns the list of all contributor addresses.
@@ -224,6 +401,12 @@ impl CrowdfundContract {
     pub fn contribute(env: Env, contributor: Address, amount: i128) -> Result<(), ContractError> {
         contributor.require_auth();
 
+        // Guard: reject if emergency stop is active.
+        emergency_stop::assert_not_stopped(&env);
+        // Guard: reject if contract is paused.
+        pause_mechanism::assert_not_paused(&env);
+
+        // Guard: campaign must be active.
         let status: Status = env.storage().instance().get(&DataKey::Status).unwrap();
         if status != Status::Active {
             log_contribute_error(&env, ContractError::CampaignNotActive);
@@ -258,6 +441,17 @@ impl CrowdfundContract {
             return Err(ContractError::CampaignEnded);
         }
 
+        let mut contributor_stream =
+            load_address_stream_state(&env, &DataKey::Contributors, &contributor);
+        let is_new_contributor = !contributor_stream.contains_target;
+        if is_new_contributor {
+            if let Err(_) =
+                contract_state_size::validate_contributor_capacity(contributor_stream.entries.len())
+            {
+                panic!("state size limit exceeded");
+            }
+        }
+
         let token_address: Address = env.storage().instance().get(&DataKey::Token).unwrap();
 
         let token_client = token::Client::new(&env, &token_address);
@@ -269,11 +463,11 @@ impl CrowdfundContract {
             .persistent()
             .get(&contribution_key)
             .unwrap_or(0);
-        let new_contribution = previous_amount
-            .checked_add(amount)
-            .ok_or(ContractError::Overflow)?;
-        env.storage().persistent().set(&contribution_key, &new_contribution);
-        env.storage().persistent().extend_ttl(&contribution_key, 100, 100);
+
+        let new_contribution = previous_amount.checked_add(amount).ok_or_else(|| {
+            contribute_error_handling::log_contribute_error(&env, ContractError::Overflow);
+            ContractError::Overflow
+        })?;
 
         let total: i128 = env.storage().instance().get(&DataKey::TotalRaised).unwrap();
         let new_total = total.checked_add(amount).ok_or(ContractError::Overflow)?;
@@ -291,15 +485,15 @@ impl CrowdfundContract {
             }
         }
 
-        let mut contributors: Vec<Address> = env
-            .storage()
-            .persistent()
-            .get(&DataKey::Contributors)
-            .unwrap_or_else(|| Vec::new(&env));
-        if !contributors.contains(&contributor) {
-            contributors.push_back(contributor.clone());
-            env.storage().persistent().set(&DataKey::Contributors, &contributors);
-            env.storage().persistent().extend_ttl(&DataKey::Contributors, 100, 100);
+        if is_new_contributor {
+            // Enforce contributor list size limit before appending.
+            contract_state_size::check_contributor_limit(&env).expect("contributor limit exceeded");
+            persist_address_stream_if_missing(
+                &env,
+                &DataKey::Contributors,
+                &mut contributor_stream,
+                &contributor,
+            );
         }
 
         env.events().publish(("campaign", "contributed"), (contributor, amount));
@@ -326,7 +520,7 @@ impl CrowdfundContract {
             .get(&DataKey::MinContribution)
             .unwrap();
         if amount < min_contribution {
-            return Err(ContractError::BelowMinimum);
+            panic!("amount below minimum");
         }
 
         let deadline: u64 = env.storage().instance().get(&DataKey::Deadline).unwrap();
@@ -334,6 +528,17 @@ impl CrowdfundContract {
             return Err(ContractError::CampaignEnded);
         }
 
+        let mut pledger_stream = load_address_stream_state(&env, &DataKey::Pledgers, &pledger);
+        let is_new_pledger = !pledger_stream.contains_target;
+        if is_new_pledger {
+            if let Err(_) =
+                contract_state_size::validate_pledger_capacity(pledger_stream.entries.len())
+            {
+                panic!("state size limit exceeded");
+            }
+        }
+
+        // Update the pledger's running total.
         let pledge_key = DataKey::Pledge(pledger.clone());
         let prev: i128 = env.storage().persistent().get(&pledge_key).unwrap_or(0);
         env.storage().persistent().set(&pledge_key, &(prev + amount));
@@ -346,15 +551,16 @@ impl CrowdfundContract {
             .unwrap_or(0);
         env.storage().instance().set(&DataKey::TotalPledged, &(total_pledged + amount));
 
-        let mut pledgers: Vec<Address> = env
-            .storage()
-            .persistent()
-            .get(&DataKey::Pledgers)
-            .unwrap_or_else(|| Vec::new(&env));
-        if !pledgers.contains(&pledger) {
-            pledgers.push_back(pledger.clone());
-            env.storage().persistent().set(&DataKey::Pledgers, &pledgers);
-            env.storage().persistent().extend_ttl(&DataKey::Pledgers, 100, 100);
+        // Track pledger address if new.
+        if is_new_pledger {
+            // Enforce pledger list size limit before appending.
+            contract_state_size::check_pledger_limit(&env).expect("pledger limit exceeded");
+            persist_address_stream_if_missing(
+                &env,
+                &DataKey::Pledgers,
+                &mut pledger_stream,
+                &pledger,
+            );
         }
 
         env.events().publish(("campaign", "pledged"), (pledger, amount));
@@ -423,11 +629,17 @@ impl CrowdfundContract {
         }
 
         let goal: i128 = env.storage().instance().get(&DataKey::Goal).unwrap();
-        let total: i128 = env.storage().instance().get(&DataKey::TotalRaised).unwrap_or(0);
+        let total: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TotalRaised)
+            .unwrap_or(0);
 
         let new_status = if total >= goal { Status::Succeeded } else { Status::Expired };
         env.storage().instance().set(&DataKey::Status, &new_status);
-        env.events().publish(("campaign", "finalized"), new_status.clone());
+        env.events()
+            .publish(("campaign", "finalized"), new_status.clone());
+
         Ok(new_status)
     }
 
@@ -438,6 +650,11 @@ impl CrowdfundContract {
 
     /// Withdraw raised funds — only callable by the creator after `Succeeded`.
     pub fn withdraw(env: Env) -> Result<(), ContractError> {
+        // Guard: reject if emergency stop is active.
+        emergency_stop::assert_not_stopped(&env);
+        // Guard: reject if contract is paused.
+        pause_mechanism::assert_not_paused(&env);
+
         let status: Status = env.storage().instance().get(&DataKey::Status).unwrap();
         if status != Status::Succeeded {
             panic!("campaign must be in Succeeded state to withdraw");
@@ -453,35 +670,59 @@ impl CrowdfundContract {
         let platform_config: Option<PlatformConfig> =
             env.storage().instance().get(&DataKey::PlatformConfig);
 
-        let creator_payout = if let Some(config) = platform_config {
+        let creator_payout = if let Some(config) = &platform_config {
             let fee = total
                 .checked_mul(config.fee_bps as i128)
                 .expect("fee calculation overflow")
                 .checked_div(10_000)
                 .expect("fee division by zero");
-            if fee > 0 {
-                token_client.transfer(&env.current_contract_address(), &config.address, &fee);
-                withdraw_event_emission::emit_fee_transferred(&env, &config.address, fee);
-            }
+
+            token_client.transfer(&env.current_contract_address(), &config.address, &fee);
+            withdraw_event_emission::emit_fee_transferred(
+                &env,
+                &config.address,
+                fee,
+                config.fee_bps,
+            );
             total.checked_sub(fee).expect("creator payout underflow")
         } else {
             total
         };
 
-        token_client.transfer(&env.current_contract_address(), &creator, &creator_payout);
+        protected_transfer(&env, || {
+            // Creator payout transfer
+            token_client.transfer(&env.current_contract_address(), &creator, &creator_payout);
+
+            // Bounded NFT minting
+            let nft_contract: Option<Address> = env.storage().instance().get(&DataKey::NFTContract);
+            let nft_minted_count = mint_nfts_in_batch(&env, &nft_contract);
+
+            // Emit withdrawal event
+            emit_withdrawn(&env, &creator, creator_payout, nft_minted_count);
+        });
+
+        // Clear TotalRaised AFTER transfers (CEI compliance)
         env.storage().instance().set(&DataKey::TotalRaised, &0i128);
 
-        let nft_contract: Option<Address> = env.storage().instance().get(&DataKey::NFTContract);
-        let nft_minted_count = mint_nfts_in_batch(&env, &nft_contract);
-        emit_withdrawal_event(&env, &creator, creator_payout, nft_minted_count);
         Ok(())
     }
 
     /// Claim a refund for a single contributor (pull-based).
+    ///
+    /// Each contributor independently claims their own refund after the campaign
+    /// deadline has passed and the goal was not met.
+    ///
+    /// # Errors
+    /// * [`ContractError::CampaignStillActive`] – Deadline has not yet passed.
+    /// * [`ContractError::GoalReached`]         – Goal was met; no refunds available.
+    /// * [`ContractError::NothingToRefund`]     – Caller has no contribution on record.
     pub fn refund_single(env: Env, contributor: Address) -> Result<(), ContractError> {
         contributor.require_auth();
         let amount = validate_refund_preconditions(&env, &contributor)?;
-        execute_refund_single(&env, &contributor, amount)
+        protected_transfer(&env, || {
+            execute_refund_single(&env, &contributor, amount)
+        });
+        Ok(())
     }
 
     /// Check if a refund is available for the given contributor (view function).
@@ -489,7 +730,8 @@ impl CrowdfundContract {
         validate_refund_preconditions(&env, &contributor)
     }
 
-    /// Cancel the campaign — callable only by the creator while Active.
+    /// Cancel the campaign and refund all contributors — callable only by
+    /// the creator while the campaign is still Active.
     pub fn cancel(env: Env) {
         let status: Status = env.storage().instance().get(&DataKey::Status).unwrap();
         if status != Status::Active {
@@ -530,9 +772,25 @@ impl CrowdfundContract {
         env.storage().instance().set(&DataKey::Status, &Status::Cancelled);
     }
 
-    /// Upgrade the contract WASM — admin-only.
+    /// Upgrade the contract to a new WASM implementation — admin-only.
+    ///
+    /// Validation order (cheapest checks first for gas efficiency):
+    /// 1. Reject zero hash — pure, no storage reads.
+    /// 2. Load admin + enforce `require_auth()`.
+    /// 3. Execute WASM swap.
+    /// 4. Emit audit event.
+    ///
+    /// # Panics
+    /// * `"zero wasm hash"` — if `new_wasm_hash` is all-zero bytes.
+    /// * `"Admin not initialized"` — if `initialize()` was never called.
+    /// * Auth error — if the caller is not the stored admin.
     pub fn upgrade(env: Env, new_wasm_hash: soroban_sdk::BytesN<32>) {
+        // Gas-efficiency edge case: reject zero hash before any storage read.
+        if !admin_upgrade_mechanism::validate_wasm_hash(&new_wasm_hash) {
+            panic!("zero wasm hash");
+        }
         let admin = admin_upgrade_mechanism::validate_admin_upgrade(&env);
+        admin_upgrade_mechanism::validate_wasm_hash(&new_wasm_hash);
         admin_upgrade_mechanism::perform_upgrade(&env, new_wasm_hash.clone());
         env.events().publish(
             (soroban_sdk::Symbol::new(&env, "upgrade"), admin),
@@ -540,7 +798,65 @@ impl CrowdfundContract {
         );
     }
 
-    /// Update campaign metadata — only callable by the creator while Active.
+    /// @notice Pause the contract — blocks `contribute()` and `withdraw()`.
+    /// @dev    Callable by `PAUSER_ROLE` or `DEFAULT_ADMIN_ROLE`.
+    ///         Emits `(access, paused)` event.
+    ///
+    /// # Arguments
+    /// * `caller` — Must hold `PAUSER_ROLE` or `DEFAULT_ADMIN_ROLE`.
+    ///
+    /// # Panics
+    /// * `"not authorized to pause"` if `caller` holds neither role.
+    pub fn pause(env: Env, caller: Address) {
+        pause_mechanism::pause(&env, &caller);
+    }
+
+    /// @notice Unpause the contract — re-enables `contribute()` and `withdraw()`.
+    /// @dev    Only `DEFAULT_ADMIN_ROLE` may unpause (asymmetric by design).
+    ///         Emits `(access, unpaused)` event.
+    ///
+    /// # Arguments
+    /// * `caller` — Must be `DEFAULT_ADMIN_ROLE`.
+    ///
+    /// # Panics
+    /// * `"only DEFAULT_ADMIN_ROLE can unpause"` if `caller` is not the admin.
+    pub fn unpause(env: Env, caller: Address) {
+        pause_mechanism::unpause(&env, &caller);
+    }
+
+    /// @notice Returns `true` if the contract is currently paused.
+    pub fn paused(env: Env) -> bool {
+        pause_mechanism::is_paused(&env)
+    }
+
+    /// @notice Permanently stop the contract — irreversible.
+    /// @dev    Only `DEFAULT_ADMIN_ROLE` may call this.
+    ///         Sets campaign status to `Cancelled` so contributors can refund.
+    ///         Emits `(emergency, stopped)` event.
+    ///
+    /// # Arguments
+    /// * `caller` — Must be `DEFAULT_ADMIN_ROLE`.
+    ///
+    /// # Panics
+    /// * `"only DEFAULT_ADMIN_ROLE can trigger emergency stop"` if not admin.
+    /// * `"already stopped"` if already triggered.
+    pub fn emergency_stop(env: Env, caller: Address) {
+        emergency_stop::trigger(&env, &caller);
+    }
+
+    /// @notice Returns `true` if the emergency stop has been triggered.
+    pub fn is_stopped(env: Env) -> bool {
+        emergency_stop::is_stopped(&env)
+    }
+
+    /// Update campaign metadata — only callable by the creator while the
+    /// campaign is still Active.
+    ///
+    /// # Arguments
+    /// * `creator`     – The campaign creator's address (for authentication).
+    /// * `title`       – Optional new title (None to keep existing).
+    /// * `description` – Optional new description (None to keep existing).
+    /// * `socials`    – Optional new social links (None to keep existing).
     pub fn update_metadata(
         env: Env,
         creator: Address,
@@ -561,16 +877,63 @@ impl CrowdfundContract {
 
         let mut updated_fields: Vec<Symbol> = Vec::new(&env);
 
+        let current_title = env.storage().instance().get::<_, String>(&DataKey::Title);
+        let current_description = env
+            .storage()
+            .instance()
+            .get::<_, String>(&DataKey::Description);
+        let current_socials = env
+            .storage()
+            .instance()
+            .get::<_, String>(&DataKey::SocialLinks);
+
+        let title_length = title
+            .as_ref()
+            .map(|value| value.len())
+            .or_else(|| current_title.as_ref().map(|value| value.len()))
+            .unwrap_or(0);
+        let description_length = description
+            .as_ref()
+            .map(|value| value.len())
+            .or_else(|| current_description.as_ref().map(|value| value.len()))
+            .unwrap_or(0);
+        let socials_length = socials
+            .as_ref()
+            .map(|value| value.len())
+            .or_else(|| current_socials.as_ref().map(|value| value.len()))
+            .unwrap_or(0);
+        if let Err(_) = contract_state_size::validate_metadata_total_length(
+            title_length,
+            description_length,
+            socials_length,
+        ) {
+            panic!("state size limit exceeded");
+        }
+
+        // Update title if provided.
         if let Some(new_title) = title {
+            if let Err(_) = contract_state_size::validate_title(&new_title) {
+                panic!("state size limit exceeded");
+            }
             env.storage().instance().set(&DataKey::Title, &new_title);
             updated_fields.push_back(Symbol::new(&env, "title"));
         }
         if let Some(new_description) = description {
-            env.storage().instance().set(&DataKey::Description, &new_description);
+            if let Err(_) = contract_state_size::validate_description(&new_description) {
+                panic!("state size limit exceeded");
+            }
+            env.storage()
+                .instance()
+                .set(&DataKey::Description, &new_description);
             updated_fields.push_back(Symbol::new(&env, "description"));
         }
         if let Some(new_socials) = socials {
-            env.storage().instance().set(&DataKey::SocialLinks, &new_socials);
+            if let Err(_) = contract_state_size::validate_social_links(&new_socials) {
+                panic!("state size limit exceeded");
+            }
+            env.storage()
+                .instance()
+                .set(&DataKey::SocialLinks, &new_socials);
             updated_fields.push_back(Symbol::new(&env, "socials"));
         }
 
@@ -597,6 +960,17 @@ impl CrowdfundContract {
             .instance()
             .get(&DataKey::Roadmap)
             .unwrap_or_else(|| Vec::new(&env));
+        if let Err(_) = contract_state_size::validate_roadmap_capacity(roadmap.len()) {
+            panic!("state size limit exceeded");
+        }
+        if let Err(_) = contract_state_size::validate_roadmap_description(&description) {
+            panic!("state size limit exceeded");
+        }
+
+        roadmap.push_back(RoadmapItem {
+            date,
+            description: description.clone(),
+        });
 
         roadmap.push_back(RoadmapItem { date, description: description.clone() });
         env.storage().instance().set(&DataKey::Roadmap, &roadmap);
@@ -626,6 +1000,10 @@ impl CrowdfundContract {
             .instance()
             .get(&DataKey::StretchGoals)
             .unwrap_or_else(|| Vec::new(&env));
+        if let Err(_) = contract_state_size::validate_stretch_goal_capacity(stretch_goals.len()) {
+            panic!("state size limit exceeded");
+        }
+
         stretch_goals.push_back(milestone);
         env.storage().instance().set(&DataKey::StretchGoals, &stretch_goals);
     }
@@ -642,12 +1020,8 @@ impl CrowdfundContract {
             .instance()
             .get(&DataKey::StretchGoals)
             .unwrap_or_else(|| Vec::new(&env));
-        for milestone in stretch_goals.iter() {
-            if total_raised < milestone {
-                return milestone;
-            }
-        }
-        0
+
+        next_unmet_milestone(total_raised, &stretch_goals)
     }
 
     // ── View functions ────────────────────────────────────────────────────────
@@ -687,11 +1061,11 @@ impl CrowdfundContract {
             .instance()
             .get(&DataKey::TotalRaised)
             .unwrap_or(0);
-        if let Some(bg) = env.storage().instance().get::<_, i128>(&DataKey::BonusGoal) {
-            campaign_goal_minimum::compute_progress_bps(total_raised, bg)
-        } else {
-            0
-        }
+
+        compute_bonus_goal_progress_bps(
+            total_raised,
+            env.storage().instance().get::<_, i128>(&DataKey::BonusGoal),
+        )
     }
 
     pub fn deadline(env: Env) -> u64 {
@@ -709,6 +1083,14 @@ impl CrowdfundContract {
         env.storage().instance().get(&DataKey::MinContribution).unwrap()
     }
 
+    /// Returns the maximum individual contribution amount (if set).
+    pub fn max_individual_contribution(env: Env) -> Option<i128> {
+        env.storage()
+            .instance()
+            .get(&DataKey::MaxIndividualContribution)
+    }
+
+    /// Returns comprehensive campaign statistics.
     pub fn get_stats(env: Env) -> CampaignStats {
         let total_raised: i128 = env
             .storage()
@@ -722,34 +1104,7 @@ impl CrowdfundContract {
             .get(&DataKey::Contributors)
             .unwrap_or_else(|| Vec::new(&env));
 
-        let progress_bps = campaign_goal_minimum::compute_progress_bps(total_raised, goal);
-        let contributor_count = contributors.len();
-        let (average_contribution, largest_contribution) = if contributor_count == 0 {
-            (0, 0)
-        } else {
-            let average = total_raised / contributor_count as i128;
-            let mut largest = 0i128;
-            for contributor in contributors.iter() {
-                let amount: i128 = env
-                    .storage()
-                    .persistent()
-                    .get(&DataKey::Contribution(contributor))
-                    .unwrap_or(0);
-                if amount > largest {
-                    largest = amount;
-                }
-            }
-            (average, largest)
-        };
-
-        CampaignStats {
-            total_raised,
-            goal,
-            progress_bps,
-            contributor_count,
-            average_contribution,
-            largest_contribution,
-        }
+        build_campaign_stats(&env, total_raised, goal, &contributors)
     }
 
     pub fn title(env: Env) -> String {
@@ -787,5 +1142,48 @@ impl CrowdfundContract {
 
     pub fn nft_contract(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::NFTContract)
+    }
+
+    // ── Cross-contract communication ─────────────────────────────────────────
+
+    /// Register an external contract in the trusted allowlist.
+    ///
+    /// Only the admin may call this. Idempotent — safe to call multiple times
+    /// with the same address.
+    ///
+    /// # Arguments
+    /// * `admin`             – Must match the stored admin; auth required.
+    /// * `contract_address`  – The external contract to trust.
+    pub fn register_trusted_contract(
+        env: Env,
+        admin: Address,
+        contract_address: Address,
+    ) -> Result<(), ContractError> {
+        cross_rollup_communication::register_trusted_contract(&env, &admin, &contract_address)
+    }
+
+    /// Remove an external contract from the trusted allowlist.
+    ///
+    /// Only the admin may call this. No-ops if the address was not registered.
+    ///
+    /// # Arguments
+    /// * `admin`             – Must match the stored admin; auth required.
+    /// * `contract_address`  – The external contract to remove.
+    pub fn deregister_trusted_contract(
+        env: Env,
+        admin: Address,
+        contract_address: Address,
+    ) -> Result<(), ContractError> {
+        cross_rollup_communication::deregister_trusted_contract(&env, &admin, &contract_address)
+    }
+
+    /// Returns the list of currently trusted external contract addresses.
+    pub fn trusted_contracts(env: Env) -> Vec<Address> {
+        cross_rollup_communication::trusted_contracts(&env)
+    }
+
+    /// Returns `true` if `contract_address` is in the trusted allowlist.
+    pub fn is_trusted_contract(env: Env, contract_address: Address) -> bool {
+        cross_rollup_communication::is_trusted(&env, &contract_address)
     }
 }

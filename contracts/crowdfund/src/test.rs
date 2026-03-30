@@ -166,9 +166,9 @@ fn test_initialize_with_bonus_goal() {
         &deadline,
         &1_000,
         &None,
+        &None,
         &Some(2_000_000i128),
         &Some(desc.clone()),
-        &None,
     );
 
     assert_eq!(client.bonus_goal(), Some(2_000_000));
@@ -193,7 +193,7 @@ fn test_initialize_platform_fee_over_100_panics() {
         &1_000_000,
         &deadline,
         &1_000,
-            &None,
+        &None,
         &Some(bad_config),
         &None,
         &None,
@@ -217,8 +217,8 @@ fn test_initialize_bonus_goal_not_greater_panics() {
         &deadline,
         &1_000,
         &None,
-        &Some(500_000i128), // less than goal
         &None,
+        &Some(500_000i128), // less than goal
         &None,
     );
     assert_eq!(
@@ -387,7 +387,7 @@ fn test_withdraw_with_platform_fee() {
         &goal,
         &deadline,
         &1_000,
-            &None,
+        &None,
         &Some(config),
         &None,
         &None,
@@ -731,8 +731,8 @@ fn test_bonus_goal_reached_after_contribution() {
         &deadline,
         &1_000,
         &None,
-        &Some(2_000_000i128),
         &None,
+        &Some(2_000_000i128),
         &None,
     );
 
