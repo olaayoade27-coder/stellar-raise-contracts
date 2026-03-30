@@ -41,6 +41,7 @@ pub mod optimistic_execution;
 pub mod security_incident_response;
 pub mod data_availability_layer;
 pub mod security_regression;
+pub mod zk_rollups;
 #[cfg(test)]
 pub mod property_based_testing;
 
