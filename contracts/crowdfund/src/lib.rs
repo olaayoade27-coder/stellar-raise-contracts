@@ -6,6 +6,7 @@ use soroban_sdk::{
 
 // ── Modules ──────────────────────────────────────────────────────────────────
 
+pub mod exception_handling;
 pub mod access_control;
 pub mod admin_upgrade_mechanism;
 pub mod dependency_vulnerability_scanning;
@@ -42,6 +43,7 @@ pub mod security_incident_response;
 pub mod data_availability_layer;
 pub mod security_regression;
 
+use crate::exception_handling::{Error, ensure_auth, invalid_input, invalid_state, state_limit_exceeded};
 use crate::reentrancy_guard::{enter_transfer, exit_transfer, protected_transfer};
 
 use crowdfund_initialize_function::{execute_initialize, InitParams};
@@ -489,10 +491,10 @@ impl CrowdfundContract {
             load_address_stream_state(&env, &DataKey::Contributors, &contributor);
         let is_new_contributor = !contributor_stream.contains_target;
         if is_new_contributor {
-            if let Err(_) =
+        if let Err(_) =
                 contract_state_size::validate_contributor_capacity(contributor_stream.entries.len())
             {
-                panic!("state size limit exceeded");
+                return state_limit_exceeded(&env);
             }
         }
 
@@ -571,15 +573,16 @@ impl CrowdfundContract {
     /// Sets the NFT contract address used for reward minting.
     ///
     /// Only the campaign creator can configure this value.
-    pub fn set_nft_contract(env: Env, creator: Address, nft_contract: Address) {
+    pub fn set_nft_contract(env: Env, creator: Address, nft_contract: Address) -> Result<(), Error> {
         let stored_creator: Address = env.storage().instance().get(&DataKey::Creator).unwrap();
         if creator != stored_creator {
-            panic!("not authorized");
+            return invalid_input(&env, "not authorized");
         }
-        creator.require_auth();
+        ensure_auth(&env, &creator)?;
         env.storage()
             .instance()
             .set(&DataKey::NFTContract, &nft_contract);
+        Ok(())
     }
 
     /// Pledge tokens to the campaign without transferring them immediately.
