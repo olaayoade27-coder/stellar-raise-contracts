@@ -63,6 +63,12 @@ jobs:
           targets: wasm32-unknown-unknown
           components: clippy, rustfmt
 
+      - name: Run performance regression detection
+        run: bash scripts/performance_regression_detection.sh
+
+      - name: Run performance regression detection tests
+        run: bash scripts/performance_regression_detection.test.sh
+
       # ── Dependency vulnerability scan ────────────────────
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
