@@ -36,8 +36,7 @@
 //! 3. Proof replay is prevented on-chain by a nullifier set (see zk_rollups.rs).
 
 use ark_bn254::{Bn254, Fr};
-use ark_ff::{Field, PrimeField};
-use ark_groth16::{Groth16, PreparedVerifyingKey, Proof, ProvingKey, VerifyingKey};
+use ark_groth16::{Groth16, Proof, ProvingKey, VerifyingKey};
 use ark_r1cs_std::{
     alloc::AllocVar,
     fields::fp::FpVar,
@@ -197,7 +196,7 @@ pub fn prove(
 /// `true` if the proof is valid.
 pub fn verify(vk: &VerifyingKey<Bn254>, proof: &Proof<Bn254>, public_inputs: &[Fr]) -> bool {
     let pvk = Groth16::<Bn254>::process_vk(vk).expect("process_vk failed");
-    Groth16::<Bn254>::verify_with_processed_vk(&pvk, public_inputs, proof)
+    Groth16::<Bn254>::verify_proof(&pvk, proof, public_inputs)
         .unwrap_or(false)
 }
 
