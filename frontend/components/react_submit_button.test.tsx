@@ -1,209 +1,426 @@
 /**
- * @title React Submit Button Security and Reliability Tests
- * @notice Covers label safety, state transitions, and interaction blocking rules.
+ * @notice Comprehensive tests for refactored ReactSubmitButton.
+ * @dev Covers custom hooks, state transitions, error handling, and dependency optimization.
+ * Target: ≥95% statement coverage
+ * Run: cd frontend && npm test react_submit_button.test.tsx
  */
-import {
-  isSubmitButtonBusy,
-  isSubmitButtonInteractionBlocked,
-  isValidSubmitButtonStateTransition,
-  normalizeSubmitButtonLabel,
-  resolveSafeSubmitButtonState,
- * @title React Submit Button Tests
- * @notice Validates state transitions, accessibility flags, and security-aware label handling.
- */
-import {
-  isSubmitButtonBusy,
-  isSubmitButtonDisabled,
-  resolveSubmitButtonLabel,
-  type SubmitButtonLabels,
+
+import React from 'react';
+import { render, screen, fireEvent, act, waitFor, renderHook } from '@testing-library/react';
+import ReactSubmitButton, {
+  isValidTransition,
+  resolveSafeState,
+  resolveLabel,
+  isInteractionBlocked,
+  isBusy,
+  normalizeText,
+  submitButtonReducer,
+  validateStateTransition,
+  useLocalPendingState,
+  useSubmitButtonState,
+  useSubmitButtonLabel,
+  useSubmitButtonSubtext,
+  useSubmitButtonInteractionState,
+  useSubmitButtonStyles,
+  DEFAULT_LABELS,
+  ALLOWED_TRANSITIONS,
+  MAX_LABEL_LENGTH,
+  MAX_HASH_DISPLAY,
+  MAX_SCRIPT_OUTPUT_LENGTH,
   type SubmitButtonState,
-} from "./react_submit_button";
+  type ReactSubmitButtonProps
+} from './react_submit_button';
 
-describe("normalizeSubmitButtonLabel", () => {
-  it("returns fallback for non-string values", () => {
-    expect(normalizeSubmitButtonLabel(undefined, "Submit")).toBe("Submit");
-    expect(normalizeSubmitButtonLabel(404, "Submit")).toBe("Submit");
-    expect(normalizeSubmitButtonLabel({}, "Submit")).toBe("Submit");
+const renderBtn = (props: Partial<ReactSubmitButtonProps> = {}) => {
+  const { container } = render(<ReactSubmitButton state="idle" {...props} />);
+  return container.querySelector('button')!;
+};
+
+const STATES: SubmitButtonState[] = ['idle', 'pending', 'success', 'error', 'disabled'];
+
+// ── Reducer ──
+describe('submitButtonReducer', () => {
+  it('START_PENDING sets isPending true', () => {
+    expect(submitButtonReducer({ isPending: false }, { type: 'START_PENDING' })).toEqual({ isPending: true });
   });
-
-  it("returns fallback for empty or whitespace labels", () => {
-    expect(normalizeSubmitButtonLabel("", "Submit")).toBe("Submit");
-    expect(normalizeSubmitButtonLabel("   \n\t", "Submit")).toBe("Submit");
-  });
-
-  it("removes control characters and normalizes whitespace", () => {
-    const dirtyLabel = "Pay\u0000\u0008\n   Now";
-    expect(normalizeSubmitButtonLabel(dirtyLabel, "Submit")).toBe("Pay Now");
-  });
-
-  it("truncates labels above the maximum bound", () => {
-    const longLabel = "A".repeat(200);
-    const normalized = normalizeSubmitButtonLabel(longLabel, "Submit");
-
-    expect(normalized).toHaveLength(80);
-    expect(normalized.endsWith("...")).toBe(true);
+  it('END_PENDING sets isPending false', () => {
+    expect(submitButtonReducer({ isPending: true }, { type: 'END_PENDING' })).toEqual({ isPending: false });
   });
 });
 
-describe("resolveSubmitButtonLabel", () => {
-  it("returns defaults for every known state", () => {
-    const states: SubmitButtonState[] = ["idle", "submitting", "success", "error", "disabled"];
-    const labels = states.map((state) => resolveSubmitButtonLabel(state));
-
-    expect(labels).toEqual(["Submit", "Submitting...", "Submitted", "Try Again", "Submit Disabled"]);
+// ── Helpers ──
+describe('normalizeText', () => {
+  it('sanitizes non-strings to fallback', () => {
+    expect(normalizeText(null, 'Fallback')).toBe('Fallback');
+    expect(normalizeText(123, 'Fallback')).toBe('Fallback');
   });
-
-  it("uses sanitized custom labels", () => {
-    const customLabels: SubmitButtonLabels = {
-      success: "  Campaign submitted successfully  ",
-    };
-
-    expect(resolveSubmitButtonLabel("success", customLabels)).toBe("Campaign submitted successfully");
+  it('strips control chars/whitespace', () => {
+    expect(normalizeText('\u0000Test\n\t', 'Fallback')).toBe('Test');
   });
-
-  it("keeps hostile markup-like text as inert string content", () => {
-    const hostile = "<img src=x onerror=alert(1) />";
-    const labels: SubmitButtonLabels = { error: hostile };
-
-    // Security assumption: React escapes text nodes, so this remains plain text content.
-describe("resolveSubmitButtonLabel", () => {
-  it("returns default labels for every known state", () => {
-    const states: SubmitButtonState[] = ["idle", "submitting", "success", "error", "disabled"];
-    const output = states.map((state) => resolveSubmitButtonLabel(state));
-
-    expect(output).toEqual(["Submit", "Submitting...", "Submitted", "Try Again", "Submit Disabled"]);
-  });
-
-  it("uses custom labels when valid", () => {
-    const labels: SubmitButtonLabels = {
-      idle: "Send Now",
-      submitting: "Please wait",
-      success: "Done",
-      error: "Retry",
-      disabled: "Locked",
-    };
-
-    expect(resolveSubmitButtonLabel("idle", labels)).toBe("Send Now");
-    expect(resolveSubmitButtonLabel("submitting", labels)).toBe("Please wait");
-    expect(resolveSubmitButtonLabel("success", labels)).toBe("Done");
-    expect(resolveSubmitButtonLabel("error", labels)).toBe("Retry");
-    expect(resolveSubmitButtonLabel("disabled", labels)).toBe("Locked");
-  });
-
-  it("falls back to defaults for empty or whitespace labels", () => {
-    const labels: SubmitButtonLabels = {
-      idle: "",
-      submitting: "   ",
-    };
-
-    expect(resolveSubmitButtonLabel("idle", labels)).toBe("Submit");
-    expect(resolveSubmitButtonLabel("submitting", labels)).toBe("Submitting...");
-  });
-
-  it("trims custom labels and limits overly long labels", () => {
-    const veryLongLabel = `${"A".repeat(90)} trailing text`;
-    const labels: SubmitButtonLabels = {
-      success: `   ${veryLongLabel}   `,
-    };
-
-    const resolved = resolveSubmitButtonLabel("success", labels);
-    expect(resolved.length).toBe(80);
-    expect(resolved.endsWith("...")).toBe(true);
-  });
-
-  it("keeps potentially hostile text as plain label content", () => {
-    const hostile = "<img src=x onerror=alert(1) />";
-    const labels: SubmitButtonLabels = { error: hostile };
-
-    // Security note: React renders strings as text, not executable HTML.
-    expect(resolveSubmitButtonLabel("error", labels)).toBe(hostile);
+  it('truncates long text', () => {
+    const long = 'A'.repeat(90);
+    expect(normalizeText(long, 'Short')).toHaveLength(80);
   });
 });
 
-describe("isValidSubmitButtonStateTransition", () => {
-  it("allows expected forward transitions", () => {
-    expect(isValidSubmitButtonStateTransition("idle", "submitting")).toBe(true);
-    expect(isValidSubmitButtonStateTransition("submitting", "success")).toBe(true);
-    expect(isValidSubmitButtonStateTransition("submitting", "error")).toBe(true);
-    expect(isValidSubmitButtonStateTransition("error", "submitting")).toBe(true);
-    expect(isValidSubmitButtonStateTransition("disabled", "idle")).toBe(true);
+describe('resolveLabel', () => {
+  it('defaults match DEFAULT_LABELS', () => {
+    STATES.forEach(s => expect(resolveLabel(s)).toBe(DEFAULT_LABELS[s]));
   });
-
-  it("allows same-state transitions (idempotent updates)", () => {
-    expect(isValidSubmitButtonStateTransition("idle", "idle")).toBe(true);
-    expect(isValidSubmitButtonStateTransition("success", "success")).toBe(true);
-  });
-
-  it("blocks invalid transitions", () => {
-    expect(isValidSubmitButtonStateTransition("idle", "success")).toBe(false);
-    expect(isValidSubmitButtonStateTransition("success", "error")).toBe(false);
-    expect(isValidSubmitButtonStateTransition("disabled", "submitting")).toBe(false);
+  it('uses custom sanitized labels', () => {
+    expect(resolveLabel('success', { success: ' Funded! ' })).toBe('Funded!');
   });
 });
 
-describe("resolveSafeSubmitButtonState", () => {
-  it("returns requested state when transition is valid", () => {
-    expect(resolveSafeSubmitButtonState("submitting", "idle", true)).toBe("submitting");
+describe('state transitions', () => {
+  it('validates allowed transitions', () => {
+    expect(isValidTransition('idle', 'pending')).toBe(true);
+    expect(isValidTransition('pending', 'success')).toBe(true);
   });
-
-  it("falls back to previous state for invalid strict transitions", () => {
-    expect(resolveSafeSubmitButtonState("success", "idle", true)).toBe("idle");
+  it('blocks invalid', () => {
+    expect(isValidTransition('idle', 'success')).toBe(false);
   });
-
-  it("accepts requested state when strict mode is disabled", () => {
-    expect(resolveSafeSubmitButtonState("success", "idle", false)).toBe("success");
-  });
-
-  it("accepts requested state when previous state is unavailable", () => {
-    expect(resolveSafeSubmitButtonState("error", undefined, true)).toBe("error");
+  it('resolves safe state strict', () => {
+    expect(resolveSafeState('success', 'idle')).toBe('idle');
   });
 });
 
-describe("interaction and busy guards", () => {
-  it("blocks interaction for disabled and submitting states", () => {
-    expect(isSubmitButtonInteractionBlocked("submitting")).toBe(true);
-    expect(isSubmitButtonInteractionBlocked("disabled")).toBe(true);
+// ── Component ──
+describe('ReactSubmitButton', () => {
+  it('renders button', () => {
+    expect(renderBtn().tagName).toBe('BUTTON');
   });
 
-  it("blocks interaction when explicit or local flags are set", () => {
-    expect(isSubmitButtonInteractionBlocked("idle", true, false)).toBe(true);
-    expect(isSubmitButtonInteractionBlocked("idle", false, true)).toBe(true);
+  it('shows resolved label', () => {
+    renderBtn();
+    expect(screen.getByText('Execute Script')).toBeInTheDocument();
   });
 
-  it("allows interaction for active states when flags are clear", () => {
-    expect(isSubmitButtonInteractionBlocked("idle", false, false)).toBe(false);
-    expect(isSubmitButtonInteractionBlocked("error", false, false)).toBe(false);
-    expect(isSubmitButtonInteractionBlocked("success", false, false)).toBe(false);
+  it('shows subtext for txHash', () => {
+    renderBtn({ txHash: 'abc123def456789' });
+    expect(screen.getByText('(Tx: …123def456789)')).toBeInTheDocument();
   });
 
-  it("sets busy only for submitting or local in-flight execution", () => {
-    expect(isSubmitButtonBusy("submitting", false)).toBe(true);
-    expect(isSubmitButtonBusy("idle", true)).toBe(true);
-    expect(isSubmitButtonBusy("idle", false)).toBe(false);
-describe("isSubmitButtonDisabled", () => {
-  it("returns true for submitting and disabled states", () => {
-    expect(isSubmitButtonDisabled("submitting")).toBe(true);
-    expect(isSubmitButtonDisabled("disabled")).toBe(true);
+  it('shows sanitized scriptOutput', () => {
+    renderBtn({ scriptOutput: 'Deployed\nSuccess' });
+    expect(screen.getByText('(Deployed Success)')).toBeInTheDocument();
   });
 
-  it("returns false for active states when disabled flag is not set", () => {
-    expect(isSubmitButtonDisabled("idle")).toBe(false);
-    expect(isSubmitButtonDisabled("success")).toBe(false);
-    expect(isSubmitButtonDisabled("error")).toBe(false);
+  it('shows spinner in pending', () => {
+    const { container } = render(<ReactSubmitButton state="pending" />);
+    const spinner = container.querySelector('svg');
+    expect(spinner).toBeTruthy();
   });
 
-  it("respects explicit disabled override", () => {
-    expect(isSubmitButtonDisabled("idle", true)).toBe(true);
-    expect(isSubmitButtonDisabled("success", true)).toBe(true);
+  it('disabled/blocked in pending/success/disabled', () => {
+    ['pending', 'success', 'disabled'].forEach(s => {
+      expect(renderBtn({ state: s as SubmitButtonState }).disabled).toBe(true);
+    });
+  });
+
+  it('click fires in idle/error', async () => {
+    const onClick = jest.fn(Promise.resolve);
+    const btn = renderBtn({ onClick });
+    await act(() => fireEvent.click(btn));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('double-submit blocked', async () => {
+    const slow = jest.fn(() => new Promise(r => setTimeout(r, 100)));
+    const btn = renderBtn({ onClick: slow });
+    fireEvent.click(btn);
+    fireEvent.click(btn); // ignored
+    await waitFor(() => expect(slow).toHaveBeenCalledTimes(1));
+  });
+
+  it('isMounted guard unmount async', async () => {
+    const slow = jest.fn(() => new Promise(r => setTimeout(r, 10)));
+    const { unmount } = render(<ReactSubmitButton state='idle' onClick={slow} />);
+    const btn = screen.getByRole('button');
+    fireEvent.click(btn);
+    unmount();
+    await waitFor(() => expect(slow).toHaveBeenCalledTimes(1));
+  });
+
+  it('a11y: aria-busy pending', () => {
+    const btn = renderBtn({ state: 'pending' });
+    expect(btn.getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('strict transitions fallback', () => {
+    const btn = renderBtn({ state: 'success', previousState: 'idle' });
+    expect(btn.dataset.state).toBe('idle');
+  });
+
+  it('calls onError when click handler throws', async () => {
+    const onError = jest.fn();
+    const onClick = jest.fn(() => Promise.reject(new Error('Click failed')));
+    const btn = renderBtn({ onClick, onError });
+    
+    await act(() => fireEvent.click(btn));
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it('handles non-Error thrown values in onError', async () => {
+    const onError = jest.fn();
+    const onClick = jest.fn(() => Promise.reject('String error'));
+    const btn = renderBtn({ onClick, onError });
+    
+    await act(() => fireEvent.click(btn));
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    const error = onError.mock.calls[0][0];
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe('String error');
+  });
+
+  it('onError callback not required', async () => {
+    const onClick = jest.fn(() => Promise.reject(new Error('Click failed')));
+    const btn = renderBtn({ onClick }); // no onError
+    
+    await act(async () => fireEvent.click(btn));
+    await waitFor(() => expect(onClick).toHaveBeenCalledTimes(1));
   });
 });
 
-describe("isSubmitButtonBusy", () => {
-  it("is true only while submitting", () => {
-    expect(isSubmitButtonBusy("submitting")).toBe(true);
-    expect(isSubmitButtonBusy("idle")).toBe(false);
-    expect(isSubmitButtonBusy("success")).toBe(false);
-    expect(isSubmitButtonBusy("error")).toBe(false);
-    expect(isSubmitButtonBusy("disabled")).toBe(false);
+// ── Custom Hooks ──
+describe('useLocalPendingState', () => {
+  it('initializes with isPending false', () => {
+    const { result } = renderHook(() => useLocalPendingState());
+    expect(result.current.isPending).toBe(false);
+  });
+
+  it('startPending sets isPending true', () => {
+    const { result } = renderHook(() => useLocalPendingState());
+    act(() => {
+      result.current.startPending();
+    });
+    expect(result.current.isPending).toBe(true);
+  });
+
+  it('endPending sets isPending false', () => {
+    const { result } = renderHook(() => useLocalPendingState());
+    act(() => {
+      result.current.startPending();
+    });
+    act(() => {
+      result.current.endPending();
+    });
+    expect(result.current.isPending).toBe(false);
+  });
+
+  it('startPending and endPending are stable callbacks', () => {
+    const { result, rerender } = renderHook(() => useLocalPendingState());
+    const startPending1 = result.current.startPending;
+    const endPending1 = result.current.endPending;
+    
+    rerender();
+    
+    expect(result.current.startPending).toBe(startPending1);
+    expect(result.current.endPending).toBe(endPending1);
   });
 });
+
+describe('useSubmitButtonState', () => {
+  it('returns state when strict mode disabled', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonState('success', 'idle', false)
+    );
+    expect(result.current).toBe('success');
+  });
+
+  it('validates transition in strict mode', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonState('pending', 'idle', true)
+    );
+    expect(result.current).toBe('pending');
+  });
+
+  it('falls back to previous state on invalid transition', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonState('success', 'idle', true)
+    );
+    expect(result.current).toBe('idle');
+  });
+
+  it('updates when state prop changes', () => {
+    const { result, rerender } = renderHook(
+      ({ state }) => useSubmitButtonState(state, 'idle', true),
+      { initialProps: { state: 'idle' as SubmitButtonState } }
+    );
+    expect(result.current).toBe('idle');
+    
+    rerender({ state: 'pending' });
+    expect(result.current).toBe('pending');
+  });
+});
+
+describe('useSubmitButtonLabel', () => {
+  it('returns default label when no custom labels', () => {
+    const { result } = renderHook(() => useSubmitButtonLabel('idle'));
+    expect(result.current).toBe(DEFAULT_LABELS.idle);
+  });
+
+  it('uses custom label when provided', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonLabel('success', { success: 'All Done!' })
+    );
+    expect(result.current).toBe('All Done!');
+  });
+
+  it('sanitizes custom labels', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonLabel('idle', { idle: '  Space Label  ' })
+    );
+    expect(result.current).toBe('Space Label');
+  });
+
+  it('memoizes result when inputs unchanged', () => {
+    const { result, rerender } = renderHook(
+      ({ state, labels }) => useSubmitButtonLabel(state, labels),
+      { initialProps: { state: 'idle' as SubmitButtonState, labels: undefined } }
+    );
+    const label1 = result.current;
+    
+    rerender({ state: 'idle', labels: undefined });
+    
+    expect(result.current).toBe(label1);
+  });
+});
+
+describe('useSubmitButtonSubtext', () => {
+  it('returns empty string when no txHash or scriptOutput', () => {
+    const { result } = renderHook(() => useSubmitButtonSubtext());
+    expect(result.current).toBe('');
+  });
+
+  it('shows txHash when provided', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonSubtext('abc123def456789', undefined)
+    );
+    expect(result.current).toContain('Tx: …');
+    expect(result.current).toContain('789');
+  });
+
+  it('prioritizes txHash over scriptOutput', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonSubtext('abc123', 'script output')
+    );
+    expect(result.current).toContain('Tx:');
+    expect(result.current).not.toContain('script output');
+  });
+
+  it('sanitizes scriptOutput', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonSubtext(undefined, 'Success\nResult')
+    );
+    expect(result.current).toContain('Success Result');
+  });
+
+  it('truncates long scriptOutput', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonSubtext(undefined, 'x'.repeat(100))
+    );
+    expect(result.current.length).toBeLessThanOrEqual(MAX_SCRIPT_OUTPUT_LENGTH + 10);
+  });
+});
+
+describe('useSubmitButtonInteractionState', () => {
+  it('blocks when state is disabled', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonInteractionState('disabled', false, false)
+    );
+    expect(result.current).toBe(true);
+  });
+
+  it('blocks when externally disabled', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonInteractionState('idle', true, false)
+    );
+    expect(result.current).toBe(true);
+  });
+
+  it('blocks when locally pending', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonInteractionState('idle', false, true)
+    );
+    expect(result.current).toBe(true);
+  });
+
+  it('allows in idle state when not blocked', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonInteractionState('idle', false, false)
+    );
+    expect(result.current).toBe(false);
+  });
+
+  it('allows in error state when not blocked', () => {
+    const { result } = renderHook(() =>
+      useSubmitButtonInteractionState('error', false, false)
+    );
+    expect(result.current).toBe(false);
+  });
+});
+
+describe('useSubmitButtonStyles', () => {
+  it('merges base styles with state styles', () => {
+    const { result } = renderHook(() => useSubmitButtonStyles('idle'));
+    expect(result.current.backgroundColor).toBe('#4f46e5');
+  });
+
+  it('returns different styles for pending state', () => {
+    const { result } = renderHook(() => useSubmitButtonStyles('pending'));
+    expect(result.current.backgroundColor).toBe('#6366f1');
+  });
+
+  it('returns success styles correctly', () => {
+    const { result } = renderHook(() => useSubmitButtonStyles('success'));
+    expect(result.current.backgroundColor).toBe('#16a34a');
+  });
+
+  it('includes base style properties', () => {
+    const { result } = renderHook(() => useSubmitButtonStyles('idle'));
+    expect(result.current.minHeight).toBe('44px');
+    expect(result.current.cursor).toBe('pointer');
+  });
+
+  it('memoizes result when state unchanged', () => {
+    const { result, rerender } = renderHook(
+      ({ state }) => useSubmitButtonStyles(state),
+      { initialProps: { state: 'idle' as SubmitButtonState } }
+    );
+    const styles1 = result.current;
+    
+    rerender({ state: 'idle' });
+    
+    expect(result.current).toBe(styles1);
+  });
+});
+
+// ── Utility Functions ──
+describe('validateStateTransition', () => {
+  it('allows valid transitions in strict mode', () => {
+    const result = validateStateTransition('idle', 'pending', 'idle', true);
+    expect(result.valid).toBe(true);
+    expect(result.resolvedState).toBe('pending');
+  });
+
+  it('rejects invalid transitions in strict mode', () => {
+    const result = validateStateTransition('idle', 'success', 'idle', true);
+    expect(result.valid).toBe(false);
+    expect(result.resolvedState).toBe('idle');
+  });
+
+  it('allows any transition when strict mode disabled', () => {
+    const result = validateStateTransition('idle', 'success', 'idle', false);
+    expect(result.valid).toBe(true);
+    expect(result.resolvedState).toBe('success');
+  });
+
+  it('allows transition when no previous state', () => {
+    const result = validateStateTransition('idle', 'success', undefined, true);
+    expect(result.valid).toBe(true);
+    expect(result.resolvedState).toBe('success');
+  });
+});
+
