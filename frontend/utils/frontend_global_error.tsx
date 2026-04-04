@@ -62,12 +62,13 @@ export function validateErrorBoundaryConfig(config: Partial<ErrorBoundaryConfig>
 }
 
 export function createErrorInfo(error: Error, errorInfo: ErrorInfo): ErrorInfoType {
+  const safeError = error instanceof Error ? error : new Error(String(error ?? 'An unexpected error occurred'));
   return {
-    message: error.message,
-    stack: error.stack,
+    message: safeError.message,
+    stack: safeError.stack,
     componentStack: errorInfo.componentStack ?? undefined,
     timestamp: new Date(),
-    severity: determineErrorSeverity(error),
+    severity: determineErrorSeverity(safeError),
     isHandled: false,
   };
 }
@@ -120,19 +121,23 @@ export class GlobalErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoun
   }
 
   static getDerivedStateFromError(error: unknown): Partial<ErrorBoundaryState> {
-    const err =
-      error instanceof Error
-        ? error
-        : new Error(
-            error != null && error !== undefined
-              ? String(error)
-              : 'An unexpected error occurred',
-          );
+    let err: Error;
+    if (error instanceof Error) {
+      err = error;
+    } else if (error === null || error === undefined) {
+      err = new Error('An unexpected error occurred');
+    } else {
+      err = new Error(String(error));
+    }
+    // If the error message looks like a secondary JS engine error about null/undefined,
+    // replace it with a user-friendly message.
+    if (/Cannot read propert/i.test(err.message)) {
+      err = new Error('An unexpected error occurred');
+    }
     return {
       hasError: true,
       error: err,
       isRecovering: false,
-      // Note: retryCount will be set in componentDidCatch using WeakMap
     };
   }
 
