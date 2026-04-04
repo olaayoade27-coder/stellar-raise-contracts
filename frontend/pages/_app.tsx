@@ -1,23 +1,11 @@
-﻿import SEO from "../components/SEO";
-import GlobalErrorBoundary from "../components/frontend_global_error";
+﻿import React from 'react';
+import { FrontendGlobalErrorBoundary } from '../components/frontend_global_error';
 
-function MyApp({ Component, pageProps }) {
+function MyApp({ Component, pageProps }: { Component: React.ComponentType<Record<string, unknown>>; pageProps: Record<string, unknown> }) {
   return (
-    <GlobalErrorBoundary>
-      <SEO />
+    <FrontendGlobalErrorBoundary>
       <Component {...pageProps} />
-    </GlobalErrorBoundary>
-﻿import "../styles/global.css";
-import SEO from "../components/SEO";
-﻿import SEO from "../components/SEO";
-import GlobalErrorBoundary from "../components/frontend_global_error";
-
-function MyApp({ Component, pageProps }) {
-  return (
-    <GlobalErrorBoundary>
-      <SEO />
-      <Component {...pageProps} />
-    </GlobalErrorBoundary>
+    </FrontendGlobalErrorBoundary>
   );
 }
 
