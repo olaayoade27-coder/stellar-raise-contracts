@@ -46,7 +46,14 @@ export const DESIGN_TOKENS = {
 export class CSSVariablesContract {
   static getVar(category: keyof typeof DESIGN_TOKENS, key: string): string {
     const formattedKey = key.toLowerCase().replace(/_/g, '-');
-    return `var(--${category.toLowerCase().slice(0, -1)}-${formattedKey})`;
+    const prefixMap: Record<string, string> = {
+      COLORS: 'color',
+      SPACING: 'spacing',
+      FONTS: 'font',
+      RADIUS: 'radius',
+    };
+    const prefix = prefixMap[category] ?? category.toLowerCase();
+    return `var(--${prefix}-${formattedKey})`;
   }
 
   static isApprovedColor(hex: string): boolean {

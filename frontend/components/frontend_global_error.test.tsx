@@ -11,7 +11,7 @@ import {
 const originalConsoleError = console.error;
 beforeAll(() => { console.error = vi.fn(); });
 afterAll(() => { console.error = originalConsoleError; });
-beforeEach(() => { jest.clearAllMocks(); });
+beforeEach(() => { vi.clearAllMocks(); });
 
 const Throw = ({ error }: { error: Error }) => { throw error; };
 

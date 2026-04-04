@@ -97,14 +97,14 @@ describe('2. Wallet Status Badge', () => {
 
   it('2.3 applies red border style when wallet is disconnected', () => {
     renderHeader({ isWalletConnected: false });
-    const badge = screen.getByText('Disconnected').closest('.wallet-status');
-    expect(badge).toHaveStyle({ border: '1px solid #FF3B30' });
+    const badge = screen.getByText('Disconnected').closest('.wallet-status') as HTMLElement;
+    expect(badge?.style.border).toBe('1px solid rgb(255, 59, 48)');
   });
 
   it('2.4 applies green border style when wallet is connected', () => {
     renderHeader({ isWalletConnected: true });
-    const badge = screen.getByText('Connected').closest('.wallet-status');
-    expect(badge).toHaveStyle({ border: '1px solid #00C853' });
+    const badge = screen.getByText('Connected').closest('.wallet-status') as HTMLElement;
+    expect(badge?.style.border).toBe('1px solid rgb(0, 200, 83)');
   });
 
   it('2.5 applies red background tint when wallet is disconnected', () => {
@@ -208,7 +208,7 @@ describe('4. onToggleMenu Callback', () => {
     // Security note: confirms the setState-updater pattern is working correctly.
     // The callback must receive the value *after* the toggle, not before.
     const received: boolean[] = [];
-    const spy = jest.fn((v: boolean) => received.push(v));
+    const spy = vi.fn((v: boolean) => received.push(v));
     renderHeader({ onToggleMenu: spy });
 
     fireEvent.click(getToggleBtn()); // closed → open  : expect true
