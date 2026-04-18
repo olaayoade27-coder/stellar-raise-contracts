@@ -14,10 +14,39 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  frontend:
+    name: Frontend UI Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: pnpm --filter @stellar-raise/frontend test
+
   check:
     name: Check, Lint & Test
     runs-on: ubuntu-latest
+    # Hard cap: entire job must complete within 30 minutes.
+    # Prevents runaway builds from blocking the merge queue indefinitely.
+    timeout-minutes: 30
     steps:
+      - name: Record job start time
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -64,18 +93,40 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Build crowdfund WASM for tests
+        # Bound: WASM build should complete within 10 minutes on a warm cache.
+        timeout-minutes: 10
         run: cargo build --release --target wasm32-unknown-unknown -p crowdfund
 
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run tests including property-based tests
+        # Bound: test suite must complete within 15 minutes.
+        timeout-minutes: 15
         env:
           PROPTEST_CASES: 1000
         run: cargo test --workspace
 
       - name: Generate Rustdoc
         run: cargo doc --no-deps --workspace
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run coverage report
+        run: cargo tarpaulin --workspace --out Xml
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: cobertura.xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: cobertura.xml
+          fail_ci_if_error: false
 
       - name: Report WASM binary size
         run: ls -lh target/wasm32-unknown-unknown/release/crowdfund.wasm
@@ -98,4 +149,16 @@ jobs:
             exit 1
           else
             echo "WASM size OK: $SIZE bytes"
+          fi
+
+      - name: Log total job elapsed time
+        if: always()
+        run: |
+          END=$(date +%s)
+          ELAPSED=$(( END - JOB_START ))
+          echo "Total job time: ${ELAPSED}s"
+          # Warn (but do not fail) if elapsed exceeds the soft target of 20 min.
+          SOFT_LIMIT_S=$(( 20 * 60 ))
+          if [ "$ELAPSED" -gt "$SOFT_LIMIT_S" ]; then
+            echo "::warning::Job took ${ELAPSED}s — exceeds soft limit of ${SOFT_LIMIT_S}s. Consider optimising slow steps."
           fi

@@ -15,13 +15,14 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["jest", "node"]
+    "composite": true,
+    "types": ["jest", "node", "@testing-library/jest-dom"]
   },
-  "include": [
-    "frontend/**/*",
-    "contracts/**/*"
+  "references": [
+    { "path": "./apps/frontend" }
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "eslint.config.mjs"
   ]
 }

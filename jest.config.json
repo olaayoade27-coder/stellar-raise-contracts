@@ -1,7 +1,7 @@
 {
   "preset": "ts-jest",
   "testEnvironment": "jsdom",
-  "setupFilesAfterEnv": ["./jest.setup.js"],
+  "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
   "moduleFileExtensions": ["ts", "tsx", "js", "jsx"],
   "transform": {
     "^.+\\.(ts|tsx|js|jsx)$": ["ts-jest", {
@@ -13,7 +13,7 @@
         "module": "commonjs",
         "types": ["jest", "node", "@testing-library/jest-dom"]
       }
-    ]
+    }]
   },
   "testMatch": [
     "**/*.test.(ts|tsx|js|jsx)"
@@ -23,6 +23,5 @@
   ],
   "moduleNameMapper": {
     "\\.(css|less|scss|sass)$": "identity-obj-proxy"
-  },
-  "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"]
+  }
 }

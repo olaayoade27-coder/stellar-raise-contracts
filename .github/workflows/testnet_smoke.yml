@@ -91,11 +91,12 @@ jobs:
 
       - name: Query and log campaign stats
         run: |
-          stellar contract invoke \
+          RAISED=$(stellar contract invoke \
             --id $CONTRACT_ID \
             --network $NETWORK \
             --source ci-deployer \
-            -- get_stats
+            -- get_stats)
+          echo "Campaign stats: $RAISED"
 
       - name: Log deployed contract address for reference
         run: |
