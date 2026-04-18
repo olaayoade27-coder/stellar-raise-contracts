@@ -26,7 +26,7 @@ updates:
 
   # Cargo for factory contract
   - package-ecosystem: "cargo"
-    directory: "/contracts/factory"
+    directory: "/apps/contracts/factory"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -46,7 +46,7 @@ updates:
 
   # Cargo for crowdfund contract
   - package-ecosystem: "cargo"
-    directory: "/contracts/crowdfund"
+    directory: "/apps/contracts/crowdfund"
     schedule:
       interval: "weekly"
       day: "monday"
